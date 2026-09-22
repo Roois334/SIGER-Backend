@@ -1,4 +1,7 @@
-﻿from flask import Flask
+﻿from dotenv import load_dotenv
+load_dotenv()
+
+from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config import Config
@@ -9,10 +12,10 @@ app = Flask(__name__)
 app.config.from_object(Config)
 CORS(app)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///temporal.db"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["JWT_SECRET_KEY"] = app.config["SECRET_KEY"]
-
+# La base de datos (tablas, triggers, procedimientos y el usuario de
+# conexion con permisos limitados) se crea con el script .sql.
+# El usuario 'siger_app' solo tiene SELECT/INSERT/UPDATE/DELETE/EXECUTE,
+# por eso aqui NO se hace db.create_all(): la app no tiene permisos de DDL.
 db.init_app(app)
 jwt = JWTManager(app)
 app.register_blueprint(auth_bp)
@@ -24,6 +27,4 @@ def home():
 
 
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True)
+    app.run(debug=Config.DEBUG)
