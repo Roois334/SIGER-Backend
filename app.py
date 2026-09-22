@@ -27,6 +27,9 @@ from controllers.catalogo_controller import municipio_bp, organismo_bp
 app.register_blueprint(municipio_bp)
 app.register_blueprint(organismo_bp)
 
+from controllers.reporte_controller import reporte_bp
+app.register_blueprint(reporte_bp)
+
 @app.route("/")
 def home():
     return "Hola SIGER-Backend esta funcionando"
@@ -34,4 +37,3 @@ def home():
 
 if __name__ == "__main__":
     app.run(debug=Config.DEBUG)
-

@@ -1,10 +1,16 @@
 import os
 from datetime import timedelta
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "clave-secreta-cambiar-en-produccion")
     DEBUG = os.environ.get("FLASK_DEBUG", "1") == "1"
+
+    # --- Evidencias de reportes ---
+    UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads", "evidencias")
+    MAX_CONTENT_LENGTH = 20 * 1024 * 1024  # 20 MB por peticion
 
     # --- Conexion a MySQL ---
     DB_USER = os.environ.get("DB_USER", "siger_app")
