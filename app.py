@@ -7,6 +7,7 @@ from flask_jwt_extended import JWTManager
 from config import Config
 from extensions import db
 from controllers.auth_controller import auth_bp
+from controllers.user_controller import user_bp
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -19,6 +20,7 @@ CORS(app)
 db.init_app(app)
 jwt = JWTManager(app)
 app.register_blueprint(auth_bp)
+app.register_blueprint(user_bp)
 
 
 @app.route("/")
