@@ -22,6 +22,10 @@ jwt = JWTManager(app)
 app.register_blueprint(auth_bp)
 app.register_blueprint(user_bp)
 
+from controllers.catalogo_controller import municipio_bp, organismo_bp
+# ... después de app.register_blueprint(user_bp):
+app.register_blueprint(municipio_bp)
+app.register_blueprint(organismo_bp)
 
 @app.route("/")
 def home():
@@ -30,3 +34,4 @@ def home():
 
 if __name__ == "__main__":
     app.run(debug=Config.DEBUG)
+
