@@ -12,6 +12,9 @@ class Config:
     UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads", "evidencias")
     MAX_CONTENT_LENGTH = 20 * 1024 * 1024  # 20 MB por peticion
 
+    # --- Fotos de perfil ---
+    UPLOAD_FOLDER_PERFILES = os.path.join(BASE_DIR, "static", "uploads", "perfiles")
+
     # --- Conexion a MySQL ---
     DB_USER = os.environ.get("DB_USER", "siger_app")
     DB_PASSWORD = os.environ.get("DB_PASSWORD", "CAMBIA_ESTA_CLAVE")

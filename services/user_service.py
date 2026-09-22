@@ -2,8 +2,13 @@ from extensions import db
 from models.user import User
 from models.catalogos import Rol, Municipio
 from dtos.user_dto import UserAdminDTO
+import os
+import uuid
+from werkzeug.utils import secure_filename
 
 ROLES_VALIDOS = ["ciudadano", "gestor_municipal", "organismo_atencion", "administrador"]
+EXTENSIONES_FOTO_VALIDAS = {"jpg", "jpeg", "png", "webp"}
+MAX_FOTO_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 class UserService:
@@ -12,7 +17,7 @@ class UserService:
         return UserAdminDTO(
             user.id, user.nombre, user.apellido, user.email,
             user.rol.nombre, user.municipio.nombre if user.municipio else None,
-            user.activo, user.fecha_creacion,
+            user.activo, user.fecha_creacion, user.foto_url,
         )
 
     @staticmethod
@@ -95,5 +100,40 @@ class UserService:
             raise ValueError("Usuario no encontrado")
 
         user.activo = activo
+        db.session.commit()
+        return UserService._to_admin_dto(user).to_dict()
+
+    @staticmethod
+    def _extension_valida(nombre_archivo):
+        return "." in nombre_archivo and \
+            nombre_archivo.rsplit(".", 1)[1].lower() in EXTENSIONES_FOTO_VALIDAS
+
+    @staticmethod
+    def update_foto(user_id, archivo, upload_folder):
+        """Guarda la foto de perfil del propio usuario y devuelve su nueva URL."""
+        user = User.query.get(user_id)
+        if not user:
+            raise ValueError("Usuario no encontrado")
+
+        if not archivo or not archivo.filename:
+            raise ValueError("No se recibio ningun archivo")
+
+        if not UserService._extension_valida(archivo.filename):
+            raise ValueError("Formato de imagen no permitido (usa jpg, png o webp)")
+
+        os.makedirs(upload_folder, exist_ok=True)
+
+        # Borra la foto anterior si existia, para no acumular archivos huerfanos
+        if user.foto_url:
+            ruta_anterior = os.path.join(upload_folder, os.path.basename(user.foto_url))
+            if os.path.exists(ruta_anterior):
+                os.remove(ruta_anterior)
+
+        extension = archivo.filename.rsplit(".", 1)[1].lower()
+        nombre_unico = f"usuario_{user.id}_{uuid.uuid4().hex[:8]}.{extension}"
+        ruta_absoluta = os.path.join(upload_folder, nombre_unico)
+        archivo.save(ruta_absoluta)
+
+        user.foto_url = f"/static/uploads/perfiles/{nombre_unico}"
         db.session.commit()
         return UserService._to_admin_dto(user).to_dict()

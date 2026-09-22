@@ -56,5 +56,6 @@ class AuthService:
             user.email,
             user.rol.nombre,
             user.municipio.nombre if user.municipio else None,
+            user.foto_url,
         )
-        return token, dto   
+        return token, dto

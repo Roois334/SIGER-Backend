@@ -12,6 +12,7 @@ class User(db.Model):
     rol_id = db.Column(db.Integer, db.ForeignKey("roles.id"), nullable=False)
     municipio_id = db.Column(db.Integer, db.ForeignKey("municipios.id"), nullable=True)
     activo = db.Column(db.Boolean, nullable=False, default=True)
+    foto_url = db.Column(db.String(255), nullable=True)
     fecha_creacion = db.Column(db.DateTime, server_default=db.func.now())
     fecha_actualizacion = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
 

@@ -15,13 +15,14 @@ class UserLoginDTO:
 
 
 class UserResponseDTO:
-    def __init__(self, id, nombre, apellido, email, rol, municipio):
+    def __init__(self, id, nombre, apellido, email, rol, municipio, foto_url=None):
         self.id = id
         self.nombre = nombre
         self.apellido = apellido
         self.email = email
         self.rol = rol
         self.municipio = municipio
+        self.foto_url = foto_url
 
     def to_dict(self):
         return {
@@ -31,6 +32,7 @@ class UserResponseDTO:
             "email": self.email,
             "rol": self.rol,
             "municipio": self.municipio,
+            "foto_url": self.foto_url,
         }
 
 
@@ -46,7 +48,7 @@ class UserUpdateDTO:
 
 class UserAdminDTO:
     """Representacion de un usuario para el panel de administracion."""
-    def __init__(self, id, nombre, apellido, email, rol, municipio, activo, fecha_creacion):
+    def __init__(self, id, nombre, apellido, email, rol, municipio, activo, fecha_creacion, foto_url=None):
         self.id = id
         self.nombre = nombre
         self.apellido = apellido
@@ -55,6 +57,7 @@ class UserAdminDTO:
         self.municipio = municipio
         self.activo = activo
         self.fecha_creacion = fecha_creacion
+        self.foto_url = foto_url
 
     def to_dict(self):
         return {
@@ -66,4 +69,5 @@ class UserAdminDTO:
             "municipio": self.municipio,
             "activo": self.activo,
             "fecha_creacion": self.fecha_creacion.isoformat() if self.fecha_creacion else None,
+            "foto_url": self.foto_url,
         }
