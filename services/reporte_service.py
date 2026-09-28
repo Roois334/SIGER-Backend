@@ -81,6 +81,12 @@ class ReporteService:
         except (ValueError, TypeError):
             raise ValueError("El numero de afectados debe ser un entero valido")
 
+        if dto.latitud is not None and not (-90 <= dto.latitud <= 90):
+             raise ValueError("La latitud debe estar entre -90 y 90 grados")
+
+        if dto.longitud is not None and not (-180 <= dto.longitud <= 180):
+            raise ValueError("La longitud debe estar entre -180 y 180 grados")
+       
         # --- Creacion del reporte ---
         reporte = Reporte(
             folio=ReporteService._generar_folio(),
