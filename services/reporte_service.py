@@ -18,6 +18,16 @@ TIPOS_EMERGENCIA = [
     "Otro",
 ]
 
+PRIORIDAD_POR_TIPO = {
+    "Incendio": "alta",
+    "Inundacion": "alta",
+    "Accidente de transito": "media",
+    "Deslizamiento": "alta",
+    "Fuga o derrame de sustancias": "critica",
+    "Emergencia medica": "critica",
+    "Otro": "media",
+}
+
 EXTENSIONES_PERMITIDAS = {"png", "jpg", "jpeg", "gif", "pdf", "mp4"}
 MAX_EVIDENCIAS = 5
 
@@ -49,7 +59,7 @@ class ReporteService:
     @staticmethod
     def _to_dto(r):
         return ReporteDTO(
-            r.id, r.folio, r.tipo, r.descripcion, r.direccion, r.latitud, r.longitud,
+            r.id, r.folio, r.tipo, r.prioridad, r.descripcion, r.direccion, r.latitud, r.longitud,
             r.afectados, r.estado, r.fecha_hora, r.ciudadano_id,
             r.municipio.nombre if r.municipio else None,
             evidencias=[EvidenciaDTO(e.id, e.nombre_archivo, e.ruta_archivo, e.fecha_carga) for e in r.evidencias],
@@ -81,12 +91,19 @@ class ReporteService:
         except (ValueError, TypeError):
             raise ValueError("El numero de afectados debe ser un entero valido")
 
+        if dto.latitud is not None and not (-90 <= dto.latitud <= 90):
+            raise ValueError("La latitud debe estar entre -90 y 90 grados")
+
+        if dto.longitud is not None and not (-180 <= dto.longitud <= 180):
+            raise ValueError("La longitud debe estar entre -180 y 180 grados")
+
         # --- Creacion del reporte ---
         reporte = Reporte(
             folio=ReporteService._generar_folio(),
             ciudadano_id=ciudadano_id,
             municipio_id=dto.municipio_id,
             tipo=dto.tipo,
+            prioridad=PRIORIDAD_POR_TIPO.get(dto.tipo, "media"),
             descripcion=dto.descripcion.strip(),
             direccion=dto.direccion.strip(),
             latitud=dto.latitud,
@@ -135,4 +152,34 @@ class ReporteService:
             .order_by(Reporte.fecha_hora.desc())
             .all()
         )
+        return [ReporteService._to_dto(r).to_dict() for r in reportes]
+
+    @staticmethod
+    def list_reportes_gestion(busqueda=None, tipo=None, estado=None, prioridad=None, municipio_id=None):
+        """Listado centralizado para gestores/administradores, con filtros opcionales."""
+        query = Reporte.query
+
+        if busqueda:
+            like = f"%{busqueda.strip()}%"
+            query = query.filter(
+                db.or_(
+                    Reporte.folio.ilike(like),
+                    Reporte.tipo.ilike(like),
+                    Reporte.direccion.ilike(like),
+                )
+            )
+
+        if tipo:
+            query = query.filter(Reporte.tipo == tipo)
+
+        if estado:
+            query = query.filter(Reporte.estado == estado)
+
+        if prioridad:
+            query = query.filter(Reporte.prioridad == prioridad)
+
+        if municipio_id:
+            query = query.filter(Reporte.municipio_id == municipio_id)
+
+        reportes = query.order_by(Reporte.fecha_hora.desc()).all()
         return [ReporteService._to_dto(r).to_dict() for r in reportes]

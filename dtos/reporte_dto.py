@@ -27,12 +27,13 @@ class EvidenciaDTO:
 
 
 class ReporteDTO:
-    def __init__(self, id, folio, tipo, descripcion, direccion, latitud, longitud,
+    def __init__(self, id, folio, tipo, prioridad, descripcion, direccion, latitud, longitud,
                  afectados, estado, fecha_hora, ciudadano_id, municipio_nombre,
                  evidencias=None):
         self.id = id
         self.folio = folio
         self.tipo = tipo
+        self.prioridad = prioridad
         self.descripcion = descripcion
         self.direccion = direccion
         self.latitud = latitud
@@ -49,6 +50,7 @@ class ReporteDTO:
             "id": self.id,
             "folio": self.folio,
             "tipo": self.tipo,
+            "prioridad": self.prioridad,
             "descripcion": self.descripcion,
             "direccion": self.direccion,
             "latitud": self.latitud,

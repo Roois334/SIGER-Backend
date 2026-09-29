@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from utilities.decorators import roles_required
 
 from dtos.reporte_dto import ReporteCreateDTO
 from services.reporte_service import ReporteService
@@ -47,6 +48,24 @@ def listar_mis_reportes():
     reportes = ReporteService.list_reportes_ciudadano(ciudadano_id)
     return jsonify({"reportes": reportes}), 200
 
+
+@reporte_bp.route("/gestion", methods=["GET"])
+@roles_required("gestor_municipal", "administrador")
+def listar_reportes_gestion():
+    """
+    Listado centralizado de emergencias, solo para gestores y administradores.
+    """
+    try:
+        reportes = ReporteService.list_reportes_gestion(
+            busqueda=request.args.get("q"),
+            tipo=request.args.get("tipo"),
+            estado=request.args.get("estado"),
+            prioridad=request.args.get("prioridad"),
+            municipio_id=request.args.get("municipio_id", type=int),
+        )
+        return jsonify({"reportes": reportes}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
 @reporte_bp.route("/<int:reporte_id>", methods=["GET"])
 @jwt_required()
