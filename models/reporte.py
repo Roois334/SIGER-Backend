@@ -11,6 +11,7 @@ class Reporte(db.Model):
     municipio_id = db.Column(db.Integer, db.ForeignKey("municipios.id"), nullable=False)
 
     tipo = db.Column(db.String(60), nullable=False)
+    prioridad = db.Column(db.String(20), nullable=False, default="media")
     descripcion = db.Column(db.Text, nullable=False)
     direccion = db.Column(db.String(200), nullable=False)
     latitud = db.Column(db.Float, nullable=True)

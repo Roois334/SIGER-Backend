@@ -16,3 +16,20 @@ def admin_required(fn):
             return jsonify({"error": "No tienes permisos de administrador"}), 403
         return fn(*args, **kwargs)
     return wrapper
+
+def roles_required(*roles_permitidos):
+    """
+    Protege una ruta para que solo accedan usuarios autenticados (JWT valido)
+    cuyo claim 'rol' este dentro de los roles permitidos.
+    Uso: @roles_required("gestor_municipal", "administrador")
+    """
+    def decorador(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            verify_jwt_in_request()
+            claims = get_jwt()
+            if claims.get("rol") not in roles_permitidos:
+                return jsonify({"error": "No tienes permisos para acceder a este recurso"}), 403
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorador
