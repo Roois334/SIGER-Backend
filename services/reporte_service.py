@@ -212,3 +212,22 @@ class ReporteService:
 
         reportes = query.order_by(Reporte.fecha_hora.desc()).all()
         return [ReporteService._to_dto(r).to_dict() for r in reportes]
+
+    @staticmethod
+    def get_evidencia_autorizada(evidencia_id, usuario_id, rol):
+        """
+        Devuelve la evidencia solo si el usuario es dueno del reporte
+        al que pertenece, o tiene rol gestor_municipal / administrador.
+        """
+        evidencia = Evidencia.query.get(evidencia_id)
+        if not evidencia:
+            raise ValueError("Evidencia no encontrada")
+
+        reporte = evidencia.reporte
+        es_dueno = reporte.ciudadano_id == usuario_id
+        es_gestor_o_admin = rol in ("gestor_municipal", "administrador")
+
+        if not es_dueno and not es_gestor_o_admin:
+            raise ValueError("No tienes permiso para acceder a esta evidencia")
+
+        return evidencia

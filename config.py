@@ -9,7 +9,7 @@ class Config:
     DEBUG = os.environ.get("FLASK_DEBUG", "1") == "1"
 
     # --- Evidencias de reportes ---
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads", "evidencias")
+    UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads_privados", "evidencias")
     MAX_CONTENT_LENGTH = 20 * 1024 * 1024  # 20 MB por peticion
 
     # --- Fotos de perfil ---

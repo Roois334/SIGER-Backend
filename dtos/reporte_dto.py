@@ -21,7 +21,7 @@ class EvidenciaDTO:
         return {
             "id": self.id,
             "nombre_archivo": self.nombre_archivo,
-            "ruta_archivo": self.ruta_archivo,
+            "url": f"/api/reportes/evidencias/{self.id}",
             "fecha_carga": self.fecha_carga.isoformat() if self.fecha_carga else None,
         }
 
