@@ -39,7 +39,7 @@ def crear_reporte():
         return jsonify({"reporte": reporte}), 201
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
-
+    
 
 @reporte_bp.route("", methods=["GET"])
 @jwt_required()

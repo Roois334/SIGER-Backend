@@ -29,7 +29,13 @@ PRIORIDAD_POR_TIPO = {
 }
 
 EXTENSIONES_PERMITIDAS = {"png", "jpg", "jpeg", "gif", "pdf", "mp4"}
+MIMETYPES_PERMITIDOS = {
+    "image/png", "image/jpeg", "image/gif",
+    "application/pdf", "video/mp4",
+}
 MAX_EVIDENCIAS = 5
+MAX_TAMANO_ARCHIVO_MB = 10
+MAX_AFECTADOS = 100000
 
 
 class ReporteService:
@@ -37,6 +43,14 @@ class ReporteService:
     @staticmethod
     def _extension_valida(filename):
         return "." in filename and filename.rsplit(".", 1)[1].lower() in EXTENSIONES_PERMITIDAS
+
+    @staticmethod
+    def _tamano_valido(archivo):
+        """Revisa el tamano real del archivo sin cargarlo completo a memoria."""
+        archivo.stream.seek(0, os.SEEK_END)
+        tamano_bytes = archivo.stream.tell()
+        archivo.stream.seek(0)
+        return tamano_bytes <= MAX_TAMANO_ARCHIVO_MB * 1024 * 1024
 
     @staticmethod
     def _generar_folio():
@@ -88,14 +102,32 @@ class ReporteService:
             afectados = int(dto.afectados or 0)
             if afectados < 0:
                 raise ValueError
+            if afectados > MAX_AFECTADOS:
+                raise ValueError(f"El numero de afectados no puede superar {MAX_AFECTADOS}")
         except (ValueError, TypeError):
             raise ValueError("El numero de afectados debe ser un entero valido")
+
+        # --- Validaciones de coordenadas ---
+        if (dto.latitud is None) != (dto.longitud is None):
+            raise ValueError("Debes proporcionar tanto la latitud como la longitud, o ninguna de las dos")
 
         if dto.latitud is not None and not (-90 <= dto.latitud <= 90):
             raise ValueError("La latitud debe estar entre -90 y 90 grados")
 
         if dto.longitud is not None and not (-180 <= dto.longitud <= 180):
             raise ValueError("La longitud debe estar entre -180 y 180 grados")
+
+        # --- Validacion de evidencias (formato y tamano) ---
+        archivos_validos = []
+        if archivos:
+            archivos_validos = [f for f in archivos if f and f.filename][:MAX_EVIDENCIAS]
+            for archivo in archivos_validos:
+                if not ReporteService._extension_valida(archivo.filename):
+                    raise ValueError(f"Formato de archivo no permitido: {archivo.filename}")
+                if archivo.mimetype not in MIMETYPES_PERMITIDOS:
+                    raise ValueError(f"El archivo {archivo.filename} no tiene un tipo de contenido valido")
+                if not ReporteService._tamano_valido(archivo):
+                    raise ValueError(f"El archivo {archivo.filename} supera el tamano maximo de {MAX_TAMANO_ARCHIVO_MB} MB")
 
         # --- Creacion del reporte ---
         reporte = Reporte(
@@ -115,12 +147,9 @@ class ReporteService:
         db.session.flush()  # asigna reporte.id sin cerrar la transaccion
 
         # --- Carga de evidencias (opcional) ---
-        if archivos and upload_folder:
-            archivos_validos = [f for f in archivos if f and f.filename][:MAX_EVIDENCIAS]
+        if archivos_validos and upload_folder:
             os.makedirs(upload_folder, exist_ok=True)
             for archivo in archivos_validos:
-                if not ReporteService._extension_valida(archivo.filename):
-                    raise ValueError(f"Formato de archivo no permitido: {archivo.filename}")
                 nombre_seguro = secure_filename(archivo.filename)
                 nombre_unico = f"{reporte.folio}_{uuid.uuid4().hex[:8]}_{nombre_seguro}"
                 ruta_absoluta = os.path.join(upload_folder, nombre_unico)
