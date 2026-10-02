@@ -50,11 +50,11 @@ class Config:
         "pool_recycle": 280,     # renueva conexiones viejas (segundos)
     }
     if str(SQLALCHEMY_DATABASE_URI).startswith("mysql"):
-        SQLALCHEMY_ENGINE_OPTIONS.update({
-            "pool_size": 3,
-            "max_overflow": 0,
+        from sqlalchemy.pool import NullPool
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            "poolclass": NullPool,   # abre y cierra la conexión en cada petición
             "connect_args": {"connect_timeout": 15},
-        })
+        }
 
     # --- JWT ---
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", SECRET_KEY)
