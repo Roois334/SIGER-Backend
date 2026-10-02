@@ -5,3 +5,5 @@ instance/
 *.db
 .env
 uploads_privados/
+static/uploads/perfiles/
+static/uploads/evidencias/
