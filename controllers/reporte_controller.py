@@ -1,5 +1,5 @@
-from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask import Blueprint, request, jsonify, current_app, send_from_directory
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from utilities.decorators import roles_required
 
 from dtos.reporte_dto import ReporteCreateDTO
@@ -40,7 +40,6 @@ def crear_reporte():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
-
 @reporte_bp.route("", methods=["GET"])
 @jwt_required()
 def listar_mis_reportes():
@@ -76,3 +75,24 @@ def obtener_reporte(reporte_id):
         return jsonify({"reporte": reporte}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
+
+@reporte_bp.route("/evidencias/<int:evidencia_id>", methods=["GET"])
+@jwt_required()
+def obtener_evidencia(evidencia_id):
+    """
+    Sirve el archivo de una evidencia solo si el usuario es el dueno del
+    reporte, o tiene rol gestor_municipal / administrador.
+    """
+    usuario_id = int(get_jwt_identity())
+    rol = get_jwt().get("rol")
+
+    try:
+        evidencia = ReporteService.get_evidencia_autorizada(evidencia_id, usuario_id, rol)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 403
+
+    return send_from_directory(
+        current_app.config["UPLOAD_FOLDER"],
+        evidencia.ruta_archivo,
+        as_attachment=False,
+    )
