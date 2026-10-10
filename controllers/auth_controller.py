@@ -14,7 +14,7 @@ def register():
             apellido=data.get("apellido"),
             email=data.get("email"),
             password=data.get("password"),
-            rol=data.get("rol", "ciudadano"),
+            rol="ciudadano",  # el registro publico SIEMPRE crea ciudadanos
             municipio=data.get("municipio"),
         )
         token, user = AuthService.register(dto)

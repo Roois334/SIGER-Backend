@@ -1,7 +1,7 @@
 ﻿from dotenv import load_dotenv
 load_dotenv()
 
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config import Config
@@ -29,6 +29,11 @@ app.register_blueprint(organismo_bp)
 
 from controllers.reporte_controller import reporte_bp
 app.register_blueprint(reporte_bp)
+
+@app.errorhandler(413)
+def archivo_demasiado_grande(e):
+    return jsonify({"error": "Los archivos superan el tamano maximo permitido"}), 413
+
 
 @app.route("/")
 def home():

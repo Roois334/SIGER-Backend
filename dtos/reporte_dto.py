@@ -1,3 +1,6 @@
+import os
+
+
 class ReporteCreateDTO:
     def __init__(self, tipo, municipio_id, direccion, descripcion,
                  latitud=None, longitud=None, afectados=0):
@@ -10,6 +13,13 @@ class ReporteCreateDTO:
         self.afectados = afectados
 
 
+_TIPOS_ARCHIVO = {
+    "png": "imagen", "jpg": "imagen", "jpeg": "imagen", "gif": "imagen",
+    "mp4": "video",
+    "pdf": "pdf",
+}
+
+
 class EvidenciaDTO:
     def __init__(self, id, nombre_archivo, ruta_archivo, fecha_carga=None):
         self.id = id
@@ -18,9 +28,11 @@ class EvidenciaDTO:
         self.fecha_carga = fecha_carga
 
     def to_dict(self):
+        extension = os.path.splitext(self.nombre_archivo or "")[1].lstrip(".").lower()
         return {
             "id": self.id,
             "nombre_archivo": self.nombre_archivo,
+            "tipo": _TIPOS_ARCHIVO.get(extension, "archivo"),
             "url": f"/api/reportes/evidencias/{self.id}",
             "fecha_carga": self.fecha_carga.isoformat() if self.fecha_carga else None,
         }
@@ -29,7 +41,7 @@ class EvidenciaDTO:
 class ReporteDTO:
     def __init__(self, id, folio, tipo, prioridad, descripcion, direccion, latitud, longitud,
                  afectados, estado, fecha_hora, ciudadano_id, municipio_nombre,
-                 evidencias=None):
+                 evidencias=None, ciudadano_nombre=None):
         self.id = id
         self.folio = folio
         self.tipo = tipo
@@ -44,6 +56,7 @@ class ReporteDTO:
         self.ciudadano_id = ciudadano_id
         self.municipio_nombre = municipio_nombre
         self.evidencias = evidencias or []
+        self.ciudadano_nombre = ciudadano_nombre
 
     def to_dict(self):
         return {
@@ -59,6 +72,7 @@ class ReporteDTO:
             "estado": self.estado,
             "fecha_hora": self.fecha_hora.isoformat() if self.fecha_hora else None,
             "ciudadano_id": self.ciudadano_id,
+            "ciudadano": self.ciudadano_nombre,
             "municipio": self.municipio_nombre,
             "evidencias": [e.to_dict() if hasattr(e, "to_dict") else e for e in self.evidencias],
         }

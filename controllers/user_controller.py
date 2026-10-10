@@ -1,14 +1,14 @@
 from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import get_jwt_identity
 from dtos.user_dto import UserUpdateDTO
 from services.user_service import UserService
-from utilities.decorators import admin_required
+from utilities.decorators import admin_required, login_activo_required
 
 user_bp = Blueprint("user_bp", __name__, url_prefix="/api/usuarios")
 
 
 @user_bp.route("/me", methods=["GET"])
-@jwt_required()
+@login_activo_required
 def obtener_mi_perfil():
     """Cualquier usuario autenticado puede consultar sus propios datos."""
     user_id = int(get_jwt_identity())
@@ -20,7 +20,7 @@ def obtener_mi_perfil():
 
 
 @user_bp.route("/me/foto", methods=["POST"])
-@jwt_required()
+@login_activo_required
 def subir_mi_foto():
     """Cualquier usuario autenticado puede cambiar su propia foto de perfil."""
     user_id = int(get_jwt_identity())
@@ -78,7 +78,7 @@ def actualizar_usuario(user_id):
         rol=data.get("rol"),
     )
     try:
-        usuario = UserService.update_user(user_id, dto)
+        usuario = UserService.update_user(user_id, dto, admin_id=get_jwt_identity())
         return jsonify({"usuario": usuario}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
