@@ -1,6 +1,6 @@
-from flask import Blueprint, request, jsonify, current_app, send_from_directory
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from utilities.decorators import roles_required
+import os
+from flask import Blueprint, request, jsonify, current_app, send_from_directory, g
+from utilities.decorators import permiso_required, login_activo_required
 
 from dtos.reporte_dto import ReporteCreateDTO
 from services.reporte_service import ReporteService
@@ -8,14 +8,21 @@ from services.reporte_service import ReporteService
 reporte_bp = Blueprint("reporte_bp", __name__, url_prefix="/api/reportes")
 
 
+@reporte_bp.route("/configuracion", methods=["GET"])
+@login_activo_required
+def configuracion_reportes():
+    """Tipos de emergencia, prioridades y limites que usa el formulario."""
+    return jsonify(ReporteService.configuracion()), 200
+
+
 @reporte_bp.route("", methods=["POST"])
-@jwt_required()
+@permiso_required("reportes.crear")
 def crear_reporte():
     """
-    Cualquier usuario autenticado (ciudadano) puede registrar una emergencia.
+    Solo los ciudadanos registran emergencias (ver utilities/permisos.py).
     Se envia como multipart/form-data para poder incluir las evidencias.
     """
-    ciudadano_id = int(get_jwt_identity())
+    ciudadano_id = g.usuario.id
     data = request.form
 
     dto = ReporteCreateDTO(
@@ -40,19 +47,20 @@ def crear_reporte():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
+
 @reporte_bp.route("", methods=["GET"])
-@jwt_required()
+@permiso_required("reportes.ver_propios")
 def listar_mis_reportes():
-    ciudadano_id = int(get_jwt_identity())
-    reportes = ReporteService.list_reportes_ciudadano(ciudadano_id)
+    reportes = ReporteService.list_reportes_ciudadano(g.usuario.id)
     return jsonify({"reportes": reportes}), 200
 
 
 @reporte_bp.route("/gestion", methods=["GET"])
-@roles_required("gestor_municipal", "administrador")
+@permiso_required("emergencias.consultar")
 def listar_reportes_gestion():
     """
-    Listado centralizado de emergencias, solo para gestores y administradores.
+    Listado de emergencias. El administrador ve todo; gestores y organismos
+    solo ven las de su municipio (el filtro lo aplica el servicio).
     """
     try:
         reportes = ReporteService.list_reportes_gestion(
@@ -61,38 +69,48 @@ def listar_reportes_gestion():
             estado=request.args.get("estado"),
             prioridad=request.args.get("prioridad"),
             municipio_id=request.args.get("municipio_id", type=int),
+            usuario=g.usuario,
         )
         return jsonify({"reportes": reportes}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
+
 @reporte_bp.route("/<int:reporte_id>", methods=["GET"])
-@jwt_required()
+@login_activo_required
 def obtener_reporte(reporte_id):
-    ciudadano_id = int(get_jwt_identity())
     try:
-        reporte = ReporteService.get_reporte(reporte_id, ciudadano_id=ciudadano_id)
+        reporte = ReporteService.get_reporte(reporte_id, usuario=g.usuario)
         return jsonify({"reporte": reporte}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
 
+
 @reporte_bp.route("/evidencias/<int:evidencia_id>", methods=["GET"])
-@jwt_required()
+@login_activo_required
 def obtener_evidencia(evidencia_id):
     """
-    Sirve el archivo de una evidencia solo si el usuario es el dueno del
-    reporte, o tiene rol gestor_municipal / administrador.
+    Sirve el archivo de una evidencia solo si el usuario puede ver el
+    reporte al que pertenece (dueno, admin, o gestor/organismo de ese municipio).
     """
-    usuario_id = int(get_jwt_identity())
-    rol = get_jwt().get("rol")
-
     try:
-        evidencia = ReporteService.get_evidencia_autorizada(evidencia_id, usuario_id, rol)
+        evidencia = ReporteService.get_evidencia_autorizada(evidencia_id, g.usuario)
     except ValueError as e:
         return jsonify({"error": str(e)}), 403
 
-    return send_from_directory(
+    # Se usa solo el nombre del archivo (nunca una ruta del cliente/BD) y se busca
+    # primero en la carpeta privada actual y luego en la carpeta antigua (static),
+    # para que las evidencias subidas antes de este cambio sigan funcionando.
+    nombre = os.path.basename(evidencia.ruta_archivo)
+    carpetas = [
         current_app.config["UPLOAD_FOLDER"],
-        evidencia.ruta_archivo,
-        as_attachment=False,
-    )
+        os.path.join(current_app.static_folder, "uploads", "evidencias"),
+    ]
+    for carpeta in carpetas:
+        if os.path.isfile(os.path.join(carpeta, nombre)):
+            respuesta = send_from_directory(carpeta, nombre, as_attachment=False)
+            respuesta.headers["X-Content-Type-Options"] = "nosniff"
+            respuesta.headers["Cache-Control"] = "private, max-age=3600"
+            return respuesta
+
+    return jsonify({"error": "El archivo de la evidencia ya no esta disponible"}), 404

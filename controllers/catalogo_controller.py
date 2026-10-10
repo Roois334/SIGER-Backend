@@ -1,10 +1,9 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
 from dtos.catalogo_dto import (
     MunicipioCreateDTO, MunicipioUpdateDTO, OrganismoCreateDTO, OrganismoUpdateDTO,
 )
 from services.catalogo_service import MunicipioService, OrganismoService
-from utilities.decorators import admin_required
+from utilities.decorators import admin_required, login_activo_required
 
 municipio_bp = Blueprint("municipio_bp", __name__, url_prefix="/api/municipios")
 organismo_bp = Blueprint("organismo_bp", __name__, url_prefix="/api/organismos")
@@ -18,7 +17,7 @@ def _estado_arg():
 # ---------------- Municipios ----------------
 
 @municipio_bp.route("/activos", methods=["GET"])
-@jwt_required()
+@login_activo_required
 def listar_municipios_activos():
     """
     Listado de solo lectura para cualquier usuario autenticado (no solo admin).
