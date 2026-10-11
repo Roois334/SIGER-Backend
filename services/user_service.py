@@ -1,12 +1,14 @@
 from extensions import db
 from models.user import User
-from models.catalogos import Rol, Municipio
+from models.catalogos import Rol, Municipio, Organismo
 from dtos.user_dto import UserAdminDTO
 import os
 import uuid
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+import re
 
-ROLES_VALIDOS = ["ciudadano", "gestor_municipal", "organismo_atencion", "administrador"]
+from utilities.permisos import ROLES_VALIDOS, ORGANISMO_ATENCION, tiene_alcance_municipal
 EXTENSIONES_FOTO_VALIDAS = {"jpg", "jpeg", "png", "webp"}
 MAX_FOTO_BYTES = 5 * 1024 * 1024  # 5 MB
 
@@ -18,6 +20,8 @@ class UserService:
             user.id, user.nombre, user.apellido, user.email,
             user.rol.nombre, user.municipio.nombre if user.municipio else None,
             user.activo, user.fecha_creacion, user.foto_url,
+            organismo=user.organismo.nombre if user.organismo else None,
+            organismo_id=user.organismo_id,
         )
 
     @staticmethod
@@ -53,10 +57,14 @@ class UserService:
         return UserService._to_admin_dto(user).to_dict()
 
     @staticmethod
-    def update_user(user_id, dto):
+    def update_user(user_id, dto, admin_id=None):
         user = User.query.get(user_id)
         if not user:
             raise ValueError("Usuario no encontrado")
+
+        # El administrador no puede cambiarse su propio rol (evita quedar sin admins)
+        if dto.rol and str(user_id) == str(admin_id) and dto.rol != user.rol.nombre:
+            raise ValueError("No puedes cambiar tu propio rol")
 
         if dto.email:
             email = dto.email.strip().lower()
@@ -79,6 +87,19 @@ class UserService:
                     raise ValueError("Municipio invalido")
                 user.municipio_id = municipio.id
 
+        if dto.organismo_id is not None:
+            if str(dto.organismo_id).strip() in ("", "0"):
+                user.organismo_id = None
+            else:
+                try:
+                    organismo = Organismo.query.get(int(dto.organismo_id))
+                except (TypeError, ValueError):
+                    organismo = None
+                if not organismo:
+                    db.session.rollback()
+                    raise ValueError("Organismo invalido")
+                user.organismo_id = organismo.id
+
         if dto.rol:
             if dto.rol not in ROLES_VALIDOS:
                 raise ValueError("Rol invalido")
@@ -86,6 +107,24 @@ class UserService:
             if not rol:
                 raise ValueError("Rol invalido")
             user.rol_id = rol.id
+            user.rol = rol
+
+        # Gestores y organismos trabajan sobre un municipio: es obligatorio
+        if tiene_alcance_municipal(user.rol.nombre) and not user.municipio_id:
+            db.session.rollback()
+            raise ValueError("Los gestores municipales y organismos de atencion deben tener un municipio asignado")
+
+        # Solo los usuarios de organismo pertenecen a un organismo (y debe operar en su municipio)
+        if user.rol.nombre != ORGANISMO_ATENCION:
+            user.organismo_id = None
+        else:
+            if not user.organismo_id:
+                db.session.rollback()
+                raise ValueError("Los usuarios de organismo de atencion deben tener un organismo asignado")
+            organismo = Organismo.query.get(user.organismo_id)
+            if organismo and user.municipio_id not in [m.id for m in organismo.municipios]:
+                db.session.rollback()
+                raise ValueError("Ese organismo no opera en el municipio asignado al usuario")
 
         db.session.commit()
         return UserService._to_admin_dto(user).to_dict()
@@ -101,6 +140,88 @@ class UserService:
 
         user.activo = activo
         db.session.commit()
+        return UserService._to_admin_dto(user).to_dict()
+
+    # ------------------------------------------------------------ perfil propio
+
+    @staticmethod
+    def update_me(user_id, nombre, apellido, municipio=None):
+        """El usuario edita sus datos personales. Solo el ciudadano puede cambiar su municipio."""
+        user = User.query.get(user_id)
+        if not user:
+            raise ValueError("Usuario no encontrado")
+
+        nombre = (nombre or "").strip()
+        apellido = (apellido or "").strip()
+        if not nombre or not apellido:
+            raise ValueError("El nombre y el apellido son obligatorios")
+        if len(nombre) > 80 or len(apellido) > 80:
+            raise ValueError("El nombre y el apellido no pueden superar 80 caracteres")
+        user.nombre = nombre
+        user.apellido = apellido
+
+        if municipio is not None and user.rol.nombre == "ciudadano":
+            municipio = municipio.strip()
+            if municipio:
+                m = Municipio.query.filter_by(nombre=municipio, activo=True).first()
+                if not m:
+                    db.session.rollback()
+                    raise ValueError("Municipio invalido")
+                user.municipio_id = m.id
+
+        db.session.commit()
+        return UserService._to_admin_dto(user).to_dict()
+
+    @staticmethod
+    def change_email(user_id, nuevo_email, password):
+        """Cambia el correo del propio usuario; exige la contrasena actual."""
+        user = User.query.get(user_id)
+        if not user:
+            raise ValueError("Usuario no encontrado")
+        if not password or not check_password_hash(user.password_hash, password):
+            raise ValueError("La contrasena actual no es correcta")
+
+        email = (nuevo_email or "").strip().lower()
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email) or len(email) > 120:
+            raise ValueError("Escribe un correo valido")
+        if email == user.email:
+            raise ValueError("Ese ya es tu correo actual")
+        if User.query.filter(User.email == email, User.id != user_id).first():
+            raise ValueError("Ya existe una cuenta con ese correo")
+
+        user.email = email
+        db.session.commit()
+        return UserService._to_admin_dto(user).to_dict()
+
+    @staticmethod
+    def change_password(user_id, actual, nueva):
+        user = User.query.get(user_id)
+        if not user:
+            raise ValueError("Usuario no encontrado")
+        if not actual or not check_password_hash(user.password_hash, actual):
+            raise ValueError("La contrasena actual no es correcta")
+        if not nueva or len(nueva) < 6:
+            raise ValueError("La contrasena nueva debe tener minimo 6 caracteres")
+        if len(nueva) > 128:
+            raise ValueError("La contrasena nueva es demasiado larga")
+        if nueva == actual:
+            raise ValueError("La contrasena nueva debe ser distinta a la actual")
+
+        user.password_hash = generate_password_hash(nueva)
+        db.session.commit()
+        return UserService._to_admin_dto(user).to_dict()
+
+    @staticmethod
+    def remove_foto(user_id, upload_folder):
+        user = User.query.get(user_id)
+        if not user:
+            raise ValueError("Usuario no encontrado")
+        if user.foto_url:
+            ruta = os.path.join(upload_folder, os.path.basename(user.foto_url))
+            if os.path.exists(ruta):
+                os.remove(ruta)
+            user.foto_url = None
+            db.session.commit()
         return UserService._to_admin_dto(user).to_dict()
 
     @staticmethod

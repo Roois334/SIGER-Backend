@@ -22,7 +22,12 @@ PERMISOS = {
     "reportes.ver_propios":   {CIUDADANO},
 
     # --- Gestion de emergencias ---
+    # Consultar: el gestor ve todo su municipio; el organismo SOLO lo que le asignaron.
     "emergencias.consultar":  {GESTOR_MUNICIPAL, ORGANISMO_ATENCION, ADMINISTRADOR},
+    # Aceptar un reporte, asignarlo a un organismo o descartarlo
+    "reportes.asignar":       {GESTOR_MUNICIPAL, ADMINISTRADOR},
+    # Iniciar atencion, marcar resuelto o devolver un reporte asignado
+    "reportes.atender":       {ORGANISMO_ATENCION},
 
     # --- Administracion ---
     "usuarios.administrar":   {ADMINISTRADOR},

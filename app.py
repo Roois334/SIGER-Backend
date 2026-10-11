@@ -8,6 +8,7 @@ from config import Config
 from extensions import db
 from controllers.auth_controller import auth_bp
 from controllers.user_controller import user_bp
+import models.password_reset  # noqa: F401  (registra la tabla password_resets)
 
 app = Flask(__name__)
 app.config.from_object(Config)

@@ -29,7 +29,7 @@ def _construir_uri_db():
 
 
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "d6f7be1f6d717e7b01c27836e5eeede07032bafca9ac23b9beab4adc70fe8f82")
+    SECRET_KEY = os.environ.get("SECRET_KEY", "clave-secreta-cambiar-en-produccion")
     DEBUG = os.environ.get("FLASK_DEBUG", "1") == "1"
 
     # --- Evidencias de reportes ---
@@ -55,6 +55,10 @@ class Config:
             "poolclass": NullPool,   # abre y cierra la conexión en cada petición
             "connect_args": {"connect_timeout": 15},
         }
+
+    # --- Recuperacion de contrasena (correo por Gmail) ---
+    # Direccion publica del FRONTEND: es la que se pone en el enlace del correo.
+    FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://127.0.0.1:5001")
 
     # --- JWT ---
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", SECRET_KEY)
