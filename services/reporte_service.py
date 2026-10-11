@@ -5,10 +5,13 @@ from sqlalchemy.exc import IntegrityError
 from werkzeug.utils import secure_filename
 
 from extensions import db
-from models.reporte import Reporte, Evidencia
-from models.catalogos import Municipio
+from models.reporte import Reporte, Evidencia, ReporteHistorial
+from models.catalogos import Municipio, Organismo, organismo_municipio
 from dtos.reporte_dto import ReporteDTO, EvidenciaDTO
-from utilities.permisos import ADMINISTRADOR, tiene_alcance_municipal
+from utilities.permisos import (
+    ADMINISTRADOR, GESTOR_MUNICIPAL, ORGANISMO_ATENCION,
+    tiene_alcance_municipal, tiene_permiso,
+)
 
 TIPOS_EMERGENCIA = [
     "Incendio",
@@ -28,6 +31,22 @@ PRIORIDAD_POR_TIPO = {
     "Fuga o derrame de sustancias": "critica",
     "Emergencia medica": "critica",
     "Otro": "media",
+}
+
+# Flujo: pendiente -> asignado -> en_atencion -> resuelto   (o descartado)
+PRIORIDADES = ["baja", "media", "alta", "critica"]
+MIN_COMENTARIO_OBLIGATORIO = 5
+MAX_COMENTARIO = 300
+
+# Organismos que normalmente atienden cada tipo (solo para SUGERIR al gestor;
+# el gestor puede elegir cualquier organismo activo del municipio).
+CODIGOS_SUGERIDOS = {
+    "Incendio": ["BOM", "CAR"],
+    "Inundacion": ["DEF", "GRD", "CRC"],
+    "Accidente de transito": ["TRA", "BOM", "SAL", "CRC", "POL"],
+    "Deslizamiento": ["DEF", "GRD"],
+    "Fuga o derrame de sustancias": ["BOM", "SSP", "CAR"],
+    "Emergencia medica": ["SAL", "CRC"],
 }
 
 EXTENSIONES_PERMITIDAS = {"png", "jpg", "jpeg", "gif", "pdf", "mp4"}
@@ -54,6 +73,14 @@ ZONA_COLOMBIA = timezone(timedelta(hours=-5))
 def _ahora():
     """Fecha y hora actual de Colombia, sin zona (como se guarda en la BD)."""
     return datetime.now(ZONA_COLOMBIA).replace(tzinfo=None)
+
+
+class PermisoError(ValueError):
+    """El usuario no tiene acceso a ese reporte (se responde 403)."""
+
+
+class NoEncontradoError(ValueError):
+    """El reporte no existe (se responde 404)."""
 
 
 class ReporteService:
@@ -137,6 +164,10 @@ class ReporteService:
             r.municipio.nombre if r.municipio else None,
             evidencias=[EvidenciaDTO(e.id, e.nombre_archivo, e.ruta_archivo, e.fecha_carga) for e in r.evidencias],
             ciudadano_nombre=f"{r.ciudadano.nombre} {r.ciudadano.apellido}".strip() if r.ciudadano else None,
+            organismo_id=r.organismo_id,
+            organismo_nombre=r.organismo.nombre if r.organismo else None,
+            fecha_asignacion=r.fecha_asignacion,
+            asignado_por=f"{r.asignado_por.nombre} {r.asignado_por.apellido}".strip() if r.asignado_por else None,
         )
 
     # ------------------------------------------------------------------ crear
@@ -274,9 +305,92 @@ class ReporteService:
         rol = usuario.rol.nombre
         if reporte.ciudadano_id == usuario.id or rol == ADMINISTRADOR:
             return True
+        if rol == ORGANISMO_ATENCION:
+            # Solo ve lo que el gestor le ASIGNO a su organismo en su municipio
+            return ReporteService._es_organismo_del_reporte(reporte, usuario)
         if tiene_alcance_municipal(rol):
             return usuario.municipio_id is not None and reporte.municipio_id == usuario.municipio_id
         return False
+
+    @staticmethod
+    def _es_organismo_del_reporte(reporte, usuario):
+        return (
+            usuario.organismo_id is not None
+            and reporte.organismo_id == usuario.organismo_id
+            and usuario.municipio_id is not None
+            and reporte.municipio_id == usuario.municipio_id
+        )
+
+    @staticmethod
+    def _puede_gestionar(reporte, usuario):
+        """Administrador, o gestor del municipio del reporte."""
+        rol = usuario.rol.nombre
+        if not tiene_permiso(rol, "reportes.asignar"):
+            return False
+        return rol == ADMINISTRADOR or (
+            usuario.municipio_id is not None and reporte.municipio_id == usuario.municipio_id
+        )
+
+    @staticmethod
+    def _acciones(reporte, usuario):
+        """Que botones puede usar ESTE usuario sobre ESTE reporte, segun su estado."""
+        gestiona = ReporteService._puede_gestionar(reporte, usuario)
+        atiende = (
+            tiene_permiso(usuario.rol.nombre, "reportes.atender")
+            and ReporteService._es_organismo_del_reporte(reporte, usuario)
+        )
+        e = reporte.estado
+        return {
+            "asignar": gestiona and e in ("pendiente", "asignado"),
+            "descartar": gestiona and e == "pendiente",
+            "iniciar": atiende and e == "asignado",
+            "devolver": atiende and e == "asignado",
+            "resolver": atiende and e == "en_atencion",
+        }
+
+    @staticmethod
+    def _organismos_para(reporte):
+        """Organismos activos que operan en el municipio del reporte (los afines al tipo, primero)."""
+        organismos = (
+            Organismo.query.join(organismo_municipio, organismo_municipio.c.organismo_id == Organismo.id)
+            .filter(Organismo.activo.is_(True), organismo_municipio.c.municipio_id == reporte.municipio_id)
+            .order_by(Organismo.nombre.asc())
+            .all()
+        )
+        sugeridos = CODIGOS_SUGERIDOS.get(reporte.tipo, [])
+        lista = [
+            {"id": o.id, "nombre": o.nombre, "tipo": o.tipo, "sugerido": o.codigo in sugeridos}
+            for o in organismos
+        ]
+        lista.sort(key=lambda o: (not o["sugerido"], o["nombre"]))
+        return lista
+
+    @staticmethod
+    def _historial(reporte, usuario):
+        es_ciudadano = usuario.id == reporte.ciudadano_id and usuario.rol.nombre != ADMINISTRADOR
+        items = []
+        for h in reporte.historial:
+            if es_ciudadano and h.accion == "devolver":
+                continue  # movimiento interno entre gestor y organismo
+            items.append({
+                "accion": h.accion,
+                "estado_anterior": h.estado_anterior,
+                "estado_nuevo": h.estado_nuevo,
+                "comentario": h.comentario,
+                "fecha": h.fecha.isoformat() if h.fecha else None,
+                "autor": f"{h.usuario.nombre} {h.usuario.apellido}".strip() if h.usuario else None,
+            })
+        return items
+
+    @staticmethod
+    def _detalle(reporte, usuario):
+        d = ReporteService._to_dto(reporte).to_dict()
+        acciones = ReporteService._acciones(reporte, usuario)
+        d["acciones"] = acciones
+        d["historial"] = ReporteService._historial(reporte, usuario)
+        if acciones["asignar"]:
+            d["organismos_disponibles"] = ReporteService._organismos_para(reporte)
+        return d
 
     @staticmethod
     def get_reporte(reporte_id, usuario):
@@ -285,7 +399,117 @@ class ReporteService:
             raise ValueError("Reporte no encontrado")
         if not ReporteService._puede_ver(r, usuario):
             raise ValueError("No tienes acceso a este reporte")
-        return ReporteService._to_dto(r).to_dict()
+        return ReporteService._detalle(r, usuario)
+
+    # ------------------------------------------------------------------ asignacion y atencion
+
+    @staticmethod
+    def _comentario(texto, obligatorio=False):
+        texto = (texto or "").strip()
+        if obligatorio and len(texto) < MIN_COMENTARIO_OBLIGATORIO:
+            raise ValueError(f"Escribe un motivo (minimo {MIN_COMENTARIO_OBLIGATORIO} caracteres)")
+        if len(texto) > MAX_COMENTARIO:
+            raise ValueError(f"El comentario no puede superar {MAX_COMENTARIO} caracteres")
+        return texto or None
+
+    @staticmethod
+    def _registrar(reporte, usuario, accion, anterior, nuevo, comentario):
+        db.session.add(ReporteHistorial(
+            reporte_id=reporte.id, usuario_id=usuario.id, accion=accion,
+            estado_anterior=anterior, estado_nuevo=nuevo,
+            comentario=comentario, fecha=_ahora(),
+        ))
+
+    @staticmethod
+    def _reporte_accesible(reporte_id, usuario):
+        r = Reporte.query.get(reporte_id)
+        if not r:
+            raise NoEncontradoError("Reporte no encontrado")
+        if not ReporteService._puede_ver(r, usuario):
+            raise PermisoError("No tienes acceso a este reporte")
+        return r
+
+    @staticmethod
+    def asignar_reporte(reporte_id, organismo_id, usuario, prioridad=None, comentario=None):
+        """
+        El gestor ACEPTA el reporte y lo asigna a un organismo. Solo desde ese
+        momento el organismo (de ese municipio) puede verlo.
+        """
+        r = ReporteService._reporte_accesible(reporte_id, usuario)
+        if not ReporteService._puede_gestionar(r, usuario):
+            raise PermisoError("No tienes permiso para asignar este reporte")
+        if r.estado not in ("pendiente", "asignado"):
+            raise ValueError("Este reporte ya esta en atencion o fue cerrado; ya no se puede asignar")
+
+        try:
+            organismo = Organismo.query.get(int(organismo_id))
+        except (TypeError, ValueError):
+            organismo = None
+        if not organismo or not organismo.activo:
+            raise ValueError("Selecciona un organismo valido")
+        if r.municipio_id not in [m.id for m in organismo.municipios]:
+            raise ValueError("Ese organismo no opera en el municipio del reporte")
+
+        notas = []
+        if prioridad:
+            if prioridad not in PRIORIDADES:
+                raise ValueError("Prioridad invalida")
+            if prioridad != r.prioridad:
+                notas.append(f"Prioridad: {r.prioridad} -> {prioridad}")
+                r.prioridad = prioridad
+        comentario = ReporteService._comentario(comentario)
+
+        anterior = r.estado
+        previo = r.organismo.nombre if r.organismo else None
+        if anterior == "asignado" and r.organismo_id == organismo.id and not notas and not comentario:
+            raise ValueError("El reporte ya esta asignado a ese organismo")
+        reasigna = anterior == "asignado"
+
+        r.organismo_id = organismo.id
+        r.estado = "asignado"
+        r.asignado_por_id = usuario.id
+        r.fecha_asignacion = _ahora()
+
+        texto = (f"Reasignado de {previo} a {organismo.nombre}" if reasigna and previo
+                 else f"Asignado a {organismo.nombre}")
+        partes = [texto] + notas + ([comentario] if comentario else [])
+        ReporteService._registrar(r, usuario, "reasignar" if reasigna else "asignar",
+                                  anterior, "asignado", ". ".join(partes)[:MAX_COMENTARIO])
+        db.session.commit()
+        return ReporteService._detalle(r, usuario)
+
+    @staticmethod
+    def cambiar_estado(reporte_id, accion, usuario, comentario=None):
+        """
+        Acciones: descartar (gestor), iniciar / resolver / devolver (organismo asignado).
+        Cada una solo funciona si el reporte esta en el estado correcto.
+        """
+        if accion not in ("descartar", "iniciar", "resolver", "devolver"):
+            raise ValueError("Accion no valida")
+        r = ReporteService._reporte_accesible(reporte_id, usuario)
+        if not ReporteService._acciones(r, usuario).get(accion):
+            raise ValueError("Esa accion ya no esta disponible (el estado del reporte cambio). Recarga la pagina")
+
+        anterior = r.estado
+        if accion == "descartar":
+            comentario = ReporteService._comentario(comentario, obligatorio=True)
+            r.estado = "descartado"
+        elif accion == "iniciar":
+            comentario = ReporteService._comentario(comentario)
+            r.estado = "en_atencion"
+        elif accion == "resolver":
+            comentario = ReporteService._comentario(comentario)
+            r.estado = "resuelto"
+        else:  # devolver: el organismo no puede atenderlo, vuelve al gestor
+            comentario = ReporteService._comentario(comentario, obligatorio=True)
+            r.estado = "pendiente"
+            r.organismo_id = None
+            r.asignado_por_id = None
+            r.fecha_asignacion = None
+
+        ReporteService._registrar(r, usuario, accion, anterior, r.estado, comentario)
+        db.session.commit()
+        return ReporteService._detalle(r, usuario)
 
     @staticmethod
     def list_reportes_ciudadano(ciudadano_id):
@@ -309,6 +533,11 @@ class ReporteService:
             if not usuario.municipio_id:
                 raise ValueError("Tu usuario no tiene un municipio asignado. Contacta al administrador")
             municipio_id = usuario.municipio_id
+            if usuario.rol.nombre == ORGANISMO_ATENCION:
+                # El organismo solo ve lo que el gestor le asigno
+                if not usuario.organismo_id:
+                    raise ValueError("Tu usuario no tiene un organismo asignado. Contacta al administrador")
+                query = query.filter(Reporte.organismo_id == usuario.organismo_id)
 
         if busqueda:
             like = f"%{busqueda.strip()}%"

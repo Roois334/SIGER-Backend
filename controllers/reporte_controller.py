@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify, current_app, send_from_directory,
 from utilities.decorators import permiso_required, login_activo_required
 
 from dtos.reporte_dto import ReporteCreateDTO
-from services.reporte_service import ReporteService
+from services.reporte_service import ReporteService, PermisoError, NoEncontradoError
 
 reporte_bp = Blueprint("reporte_bp", __name__, url_prefix="/api/reportes")
 
@@ -84,6 +84,43 @@ def obtener_reporte(reporte_id):
         return jsonify({"reporte": reporte}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
+
+
+def _error(e):
+    codigo = 403 if isinstance(e, PermisoError) else 404 if isinstance(e, NoEncontradoError) else 400
+    return jsonify({"error": str(e)}), codigo
+
+
+@reporte_bp.route("/<int:reporte_id>/asignar", methods=["POST"])
+@permiso_required("reportes.asignar")
+def asignar_reporte(reporte_id):
+    """El gestor acepta el reporte y lo asigna (o reasigna) a un organismo."""
+    data = request.get_json(silent=True) or {}
+    try:
+        reporte = ReporteService.asignar_reporte(
+            reporte_id, data.get("organismo_id"), g.usuario,
+            prioridad=data.get("prioridad"), comentario=data.get("comentario"),
+        )
+        return jsonify({"reporte": reporte}), 200
+    except ValueError as e:
+        return _error(e)
+
+
+@reporte_bp.route("/<int:reporte_id>/estado", methods=["POST"])
+@login_activo_required
+def cambiar_estado_reporte(reporte_id):
+    """
+    Acciones: descartar (gestor), iniciar / resolver / devolver (organismo asignado).
+    El servicio valida quien puede hacer cada una y desde que estado.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        reporte = ReporteService.cambiar_estado(
+            reporte_id, data.get("accion"), g.usuario, comentario=data.get("comentario"),
+        )
+        return jsonify({"reporte": reporte}), 200
+    except ValueError as e:
+        return _error(e)
 
 
 @reporte_bp.route("/evidencias/<int:evidencia_id>", methods=["GET"])

@@ -1,6 +1,7 @@
 ﻿from flask import Blueprint, request, jsonify
 from dtos.user_dto import UserRegisterDTO, UserLoginDTO
 from services.auth_service import AuthService
+from services.recuperacion_service import RecuperacionService
 
 auth_bp = Blueprint("auth_bp", __name__, url_prefix="/api/auth")
 
@@ -32,3 +33,33 @@ def login():
         return jsonify({"token": token, "usuario": user.to_dict()}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 401
+
+
+
+@auth_bp.route("/olvide-password", methods=["POST"])
+def olvide_password():
+    """Envia un enlace de recuperacion. Responde siempre igual para no revelar que correos existen."""
+    data = request.get_json(silent=True) or {}
+    try:
+        RecuperacionService.solicitar(data.get("email"))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"mensaje": "Si el correo esta registrado, te enviamos un enlace para restablecer tu contrasena"}), 200
+
+
+@auth_bp.route("/restablecer/<token>", methods=["GET"])
+def validar_enlace(token):
+    try:
+        return jsonify(RecuperacionService.validar(token)), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 410
+
+
+@auth_bp.route("/restablecer", methods=["POST"])
+def restablecer_password():
+    data = request.get_json(silent=True) or {}
+    try:
+        RecuperacionService.restablecer(data.get("token"), data.get("nueva"))
+        return jsonify({"mensaje": "Contrasena actualizada"}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400

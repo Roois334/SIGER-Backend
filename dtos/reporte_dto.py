@@ -41,7 +41,8 @@ class EvidenciaDTO:
 class ReporteDTO:
     def __init__(self, id, folio, tipo, prioridad, descripcion, direccion, latitud, longitud,
                  afectados, estado, fecha_hora, ciudadano_id, municipio_nombre,
-                 evidencias=None, ciudadano_nombre=None):
+                 evidencias=None, ciudadano_nombre=None,
+                 organismo_id=None, organismo_nombre=None, fecha_asignacion=None, asignado_por=None):
         self.id = id
         self.folio = folio
         self.tipo = tipo
@@ -57,6 +58,10 @@ class ReporteDTO:
         self.municipio_nombre = municipio_nombre
         self.evidencias = evidencias or []
         self.ciudadano_nombre = ciudadano_nombre
+        self.organismo_id = organismo_id
+        self.organismo_nombre = organismo_nombre
+        self.fecha_asignacion = fecha_asignacion
+        self.asignado_por = asignado_por
 
     def to_dict(self):
         return {
@@ -74,5 +79,9 @@ class ReporteDTO:
             "ciudadano_id": self.ciudadano_id,
             "ciudadano": self.ciudadano_nombre,
             "municipio": self.municipio_nombre,
+            "organismo_id": self.organismo_id,
+            "organismo": self.organismo_nombre,
+            "fecha_asignacion": self.fecha_asignacion.isoformat() if self.fecha_asignacion else None,
+            "asignado_por": self.asignado_por,
             "evidencias": [e.to_dict() if hasattr(e, "to_dict") else e for e in self.evidencias],
         }

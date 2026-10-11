@@ -19,6 +19,52 @@ def obtener_mi_perfil():
         return jsonify({"error": str(e)}), 404
 
 
+@user_bp.route("/me", methods=["PUT"])
+@login_activo_required
+def actualizar_mi_perfil():
+    """Nombre, apellido y (solo ciudadanos) municipio del propio usuario."""
+    data = request.get_json(silent=True) or {}
+    try:
+        usuario = UserService.update_me(int(get_jwt_identity()), data.get("nombre"),
+                                        data.get("apellido"), data.get("municipio"))
+        return jsonify({"usuario": usuario}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@user_bp.route("/me/email", methods=["PUT"])
+@login_activo_required
+def cambiar_mi_correo():
+    data = request.get_json(silent=True) or {}
+    try:
+        usuario = UserService.change_email(int(get_jwt_identity()), data.get("email"), data.get("password"))
+        return jsonify({"usuario": usuario}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@user_bp.route("/me/password", methods=["PUT"])
+@login_activo_required
+def cambiar_mi_password():
+    data = request.get_json(silent=True) or {}
+    try:
+        usuario = UserService.change_password(int(get_jwt_identity()), data.get("actual"), data.get("nueva"))
+        return jsonify({"usuario": usuario}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@user_bp.route("/me/foto", methods=["DELETE"])
+@login_activo_required
+def quitar_mi_foto():
+    try:
+        usuario = UserService.remove_foto(int(get_jwt_identity()),
+                                          upload_folder=current_app.config["UPLOAD_FOLDER_PERFILES"])
+        return jsonify({"usuario": usuario}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
 @user_bp.route("/me/foto", methods=["POST"])
 @login_activo_required
 def subir_mi_foto():
@@ -76,6 +122,7 @@ def actualizar_usuario(user_id):
         email=data.get("email"),
         municipio=data.get("municipio"),
         rol=data.get("rol"),
+        organismo_id=data.get("organismo_id"),
     )
     try:
         usuario = UserService.update_user(user_id, dto, admin_id=get_jwt_identity())

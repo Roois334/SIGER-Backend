@@ -15,7 +15,8 @@ class UserLoginDTO:
 
 
 class UserResponseDTO:
-    def __init__(self, id, nombre, apellido, email, rol, municipio, foto_url=None):
+    def __init__(self, id, nombre, apellido, email, rol, municipio, foto_url=None, organismo=None):
+        self.organismo = organismo
         self.id = id
         self.nombre = nombre
         self.apellido = apellido
@@ -33,12 +34,14 @@ class UserResponseDTO:
             "rol": self.rol,
             "municipio": self.municipio,
             "foto_url": self.foto_url,
+            "organismo": self.organismo,
         }
 
 
 class UserUpdateDTO:
     """Datos que un administrador puede modificar de un usuario existente."""
-    def __init__(self, nombre=None, apellido=None, email=None, municipio=None, rol=None):
+    def __init__(self, nombre=None, apellido=None, email=None, municipio=None, rol=None, organismo_id=None):
+        self.organismo_id = organismo_id
         self.nombre = nombre
         self.apellido = apellido
         self.email = email
@@ -48,7 +51,10 @@ class UserUpdateDTO:
 
 class UserAdminDTO:
     """Representacion de un usuario para el panel de administracion."""
-    def __init__(self, id, nombre, apellido, email, rol, municipio, activo, fecha_creacion, foto_url=None):
+    def __init__(self, id, nombre, apellido, email, rol, municipio, activo, fecha_creacion, foto_url=None,
+                 organismo=None, organismo_id=None):
+        self.organismo = organismo
+        self.organismo_id = organismo_id
         self.id = id
         self.nombre = nombre
         self.apellido = apellido
@@ -70,4 +76,6 @@ class UserAdminDTO:
             "activo": self.activo,
             "fecha_creacion": self.fecha_creacion.isoformat() if self.fecha_creacion else None,
             "foto_url": self.foto_url,
+            "organismo": self.organismo,
+            "organismo_id": self.organismo_id,
         }
