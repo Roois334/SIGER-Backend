@@ -2,6 +2,7 @@ from extensions import db
 from models.user import User
 from models.catalogos import Rol, Municipio, Organismo
 from dtos.user_dto import UserAdminDTO
+from utilities.validaciones import validar_password
 import os
 import uuid
 from werkzeug.utils import secure_filename
@@ -200,10 +201,7 @@ class UserService:
             raise ValueError("Usuario no encontrado")
         if not actual or not check_password_hash(user.password_hash, actual):
             raise ValueError("La contrasena actual no es correcta")
-        if not nueva or len(nueva) < 6:
-            raise ValueError("La contrasena nueva debe tener minimo 6 caracteres")
-        if len(nueva) > 128:
-            raise ValueError("La contrasena nueva es demasiado larga")
+        validar_password(nueva, "La contrasena nueva")
         if nueva == actual:
             raise ValueError("La contrasena nueva debe ser distinta a la actual")
 

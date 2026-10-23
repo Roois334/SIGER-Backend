@@ -4,20 +4,29 @@ from extensions import db
 from models.user import User
 from models.catalogos import Rol, Municipio
 from dtos.user_dto import UserResponseDTO
+from utilities.validaciones import validar_email, validar_password
 
 
 class AuthService:
     @staticmethod
     def register(dto):
-        rol = Rol.query.filter_by(nombre=dto.rol).first()
+        # El registro publico SIEMPRE crea ciudadanos, sin importar lo que llegue en dto.rol
+        rol = Rol.query.filter_by(nombre="ciudadano").first()
         if not rol:
             raise ValueError("Rol invalido")
 
-        if not dto.email or User.query.filter_by(email=dto.email).first():
+        dto.nombre = (dto.nombre or "").strip()
+        dto.apellido = (dto.apellido or "").strip()
+        if not dto.nombre or not dto.apellido:
+            raise ValueError("Nombre y apellido son obligatorios")
+        if len(dto.nombre) > 80 or len(dto.apellido) > 80:
+            raise ValueError("Nombre y apellido no pueden superar 80 caracteres")
+
+        dto.email = validar_email(dto.email)
+        if User.query.filter_by(email=dto.email).first():
             raise ValueError("Ya existe una cuenta con ese correo")
 
-        if not dto.password or len(dto.password) < 6:
-            raise ValueError("La contrasena debe tener minimo 6 caracteres")
+        validar_password(dto.password)
 
         municipio = None
         if dto.municipio:

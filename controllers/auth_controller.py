@@ -2,6 +2,10 @@
 from dtos.user_dto import UserRegisterDTO, UserLoginDTO
 from services.auth_service import AuthService
 from services.recuperacion_service import RecuperacionService
+from utilities.limitador import LimitadorIntentos
+
+# 5 intentos fallidos por correo cada 15 minutos
+_limitador_login = LimitadorIntentos(maximo=5, ventana_seg=900)
 
 auth_bp = Blueprint("auth_bp", __name__, url_prefix="/api/auth")
 
@@ -26,12 +30,19 @@ def register():
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
+    clave = str(data.get("email") or "").strip().lower()
+    espera = _limitador_login.segundos_bloqueado(clave)
+    if espera:
+        minutos = espera // 60 + 1
+        return jsonify({"error": f"Demasiados intentos fallidos. Intenta de nuevo en {minutos} minuto(s)"}), 429
     try:
         dto = UserLoginDTO(email=data.get("email"), password=data.get("password"))
         token, user = AuthService.login(dto)
+        _limitador_login.registrar_exito(clave)
         return jsonify({"token": token, "usuario": user.to_dict()}), 200
     except ValueError as e:
+        _limitador_login.registrar_fallo(clave)
         return jsonify({"error": str(e)}), 401
 
 

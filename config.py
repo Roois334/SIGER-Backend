@@ -29,8 +29,12 @@ def _construir_uri_db():
 
 
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "clave-secreta-cambiar-en-produccion")
-    DEBUG = os.environ.get("FLASK_DEBUG", "1") == "1"
+    # Modo depuracion: solo si el .env dice FLASK_DEBUG=1
+    DEBUG = os.environ.get("FLASK_DEBUG", "0") == "1"
+    # La clave secreta es obligatoria (solo en depuracion se permite una de desarrollo)
+    SECRET_KEY = os.environ.get("SECRET_KEY") or ("clave-solo-para-desarrollo" if DEBUG else None)
+    if not SECRET_KEY:
+        raise RuntimeError("Falta SECRET_KEY en el .env. Define una clave larga y aleatoria.")
 
     # --- Evidencias de reportes ---
     UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads_privados", "evidencias")
