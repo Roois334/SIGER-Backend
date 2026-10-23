@@ -1,5 +1,9 @@
 ﻿class UserRegisterDTO:
-    def __init__(self, nombre, apellido, email, password, rol="ciudadano", municipio=None):
+    def __init__(self, nombre, apellido, email, password, rol="ciudadano", municipio=None,
+                 tipo_documento=None, documento=None, telefono=None):
+        self.tipo_documento = tipo_documento
+        self.documento = documento
+        self.telefono = telefono
         self.nombre = nombre
         self.apellido = apellido
         self.email = email
@@ -52,7 +56,10 @@ class UserUpdateDTO:
 class UserAdminDTO:
     """Representacion de un usuario para el panel de administracion."""
     def __init__(self, id, nombre, apellido, email, rol, municipio, activo, fecha_creacion, foto_url=None,
-                 organismo=None, organismo_id=None):
+                 organismo=None, organismo_id=None, tipo_documento=None, documento=None, telefono=None):
+        self.tipo_documento = tipo_documento
+        self.documento = documento
+        self.telefono = telefono
         self.organismo = organismo
         self.organismo_id = organismo_id
         self.id = id
@@ -78,4 +85,7 @@ class UserAdminDTO:
             "foto_url": self.foto_url,
             "organismo": self.organismo,
             "organismo_id": self.organismo_id,
+            "tipo_documento": self.tipo_documento,
+            "documento": self.documento,
+            "telefono": self.telefono,
         }

@@ -1,8 +1,11 @@
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
 from extensions import db
 from models.user import User
 from models.catalogos import Rol, Municipio, Organismo
 from dtos.user_dto import UserAdminDTO
 from utilities.validaciones import validar_password
+from utilities.validaciones_persona import validar_documento, validar_telefono
 import os
 import uuid
 from werkzeug.utils import secure_filename
@@ -23,6 +26,7 @@ class UserService:
             user.activo, user.fecha_creacion, user.foto_url,
             organismo=user.organismo.nombre if user.organismo else None,
             organismo_id=user.organismo_id,
+            tipo_documento=user.tipo_documento, documento=user.documento, telefono=user.telefono,
         )
 
     @staticmethod
@@ -47,7 +51,10 @@ class UserService:
         if activo is not None:
             query = query.filter(User.activo == activo)
 
-        usuarios = query.order_by(User.id.asc()).all()
+        usuarios = (
+            query.options(joinedload(User.rol), joinedload(User.municipio), joinedload(User.organismo))
+            .order_by(User.id.asc()).all()
+        )
         return [UserService._to_admin_dto(u).to_dict() for u in usuarios]
 
     @staticmethod
@@ -146,7 +153,8 @@ class UserService:
     # ------------------------------------------------------------ perfil propio
 
     @staticmethod
-    def update_me(user_id, nombre, apellido, municipio=None):
+    def update_me(user_id, nombre, apellido, municipio=None,
+                  tipo_documento=None, documento=None, telefono=None):
         """El usuario edita sus datos personales. Solo el ciudadano puede cambiar su municipio."""
         user = User.query.get(user_id)
         if not user:
@@ -170,7 +178,30 @@ class UserService:
                     raise ValueError("Municipio invalido")
                 user.municipio_id = m.id
 
-        db.session.commit()
+        # Documento y telefono: si vienen vacios no se tocan (no se pueden borrar desde aqui)
+        try:
+            tipo = (tipo_documento or "").strip()
+            numero = (documento or "").strip()
+            if tipo or numero:
+                tipo, numero = validar_documento(tipo, numero)
+                repetido = User.query.filter(
+                    User.tipo_documento == tipo, User.documento == numero, User.id != user.id
+                ).first()
+                if repetido:
+                    raise ValueError("Ya existe una cuenta con ese documento")
+                user.tipo_documento = tipo
+                user.documento = numero
+            if (telefono or "").strip():
+                user.telefono = validar_telefono(telefono)
+        except ValueError:
+            db.session.rollback()
+            raise
+
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            raise ValueError("Ya existe una cuenta con ese documento")
         return UserService._to_admin_dto(user).to_dict()
 
     @staticmethod

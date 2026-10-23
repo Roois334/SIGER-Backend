@@ -21,6 +21,9 @@ def register():
             password=data.get("password"),
             rol="ciudadano",  # el registro publico SIEMPRE crea ciudadanos
             municipio=data.get("municipio"),
+            tipo_documento=data.get("tipo_documento"),
+            documento=data.get("documento"),
+            telefono=data.get("telefono"),
         )
         token, user = AuthService.register(dto)
         return jsonify({"token": token, "usuario": user.to_dict()}), 201

@@ -17,6 +17,7 @@ class Reporte(db.Model):
     latitud = db.Column(db.Float, nullable=True)
     longitud = db.Column(db.Float, nullable=True)
     afectados = db.Column(db.Integer, nullable=False, default=0)
+    heridos = db.Column(db.Integer, nullable=False, default=0)
 
     # pendiente -> asignado -> en_atencion -> resuelto   (o descartado)
     estado = db.Column(db.String(20), nullable=False, default="pendiente")

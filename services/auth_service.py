@@ -1,10 +1,12 @@
 ﻿from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token
+from sqlalchemy.exc import IntegrityError
 from extensions import db
 from models.user import User
 from models.catalogos import Rol, Municipio
 from dtos.user_dto import UserResponseDTO
 from utilities.validaciones import validar_email, validar_password
+from utilities.validaciones_persona import validar_documento, validar_telefono
 
 
 class AuthService:
@@ -28,6 +30,11 @@ class AuthService:
 
         validar_password(dto.password)
 
+        dto.tipo_documento, dto.documento = validar_documento(dto.tipo_documento, dto.documento)
+        dto.telefono = validar_telefono(dto.telefono)
+        if User.query.filter_by(tipo_documento=dto.tipo_documento, documento=dto.documento).first():
+            raise ValueError("Ya existe una cuenta con ese documento")
+
         municipio = None
         if dto.municipio:
             municipio = Municipio.query.filter_by(nombre=dto.municipio).first()
@@ -41,9 +48,16 @@ class AuthService:
             password_hash=generate_password_hash(dto.password),
             rol_id=rol.id,
             municipio_id=municipio.id if municipio else None,
+            tipo_documento=dto.tipo_documento,
+            documento=dto.documento,
+            telefono=dto.telefono,
         )
         db.session.add(user)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            raise ValueError("Ya existe una cuenta con ese correo o documento")
 
         return AuthService._emitir_token(user)
 

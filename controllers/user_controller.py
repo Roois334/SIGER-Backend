@@ -26,7 +26,10 @@ def actualizar_mi_perfil():
     data = request.get_json(silent=True) or {}
     try:
         usuario = UserService.update_me(int(get_jwt_identity()), data.get("nombre"),
-                                        data.get("apellido"), data.get("municipio"))
+                                        data.get("apellido"), data.get("municipio"),
+                                        tipo_documento=data.get("tipo_documento"),
+                                        documento=data.get("documento"),
+                                        telefono=data.get("telefono"))
         return jsonify({"usuario": usuario}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
