@@ -1,6 +1,6 @@
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask import current_app
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -9,6 +9,7 @@ from extensions import db
 from models.user import User
 from models.password_reset import PasswordReset
 from utilities.correo import enviar_correo
+from utilities.validaciones import validar_password
 
 MINUTOS_VALIDEZ = 30
 MAX_SOLICITUDES_POR_HORA = 3
@@ -19,7 +20,7 @@ def _hash(token):
 
 
 def _ahora():
-    return datetime.utcnow()
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _enmascarar(email):
@@ -216,10 +217,7 @@ class RecuperacionService:
         user = User.query.get(pr.usuario_id)
         if not user or not user.activo:
             raise ValueError("El enlace no es valido o ya vencio. Pide uno nuevo")
-        if not nueva or len(nueva) < 6:
-            raise ValueError("La contrasena debe tener minimo 6 caracteres")
-        if len(nueva) > 128:
-            raise ValueError("La contrasena es demasiado larga")
+        validar_password(nueva)
         if check_password_hash(user.password_hash, nueva):
             raise ValueError("Elige una contrasena distinta a la actual")
 

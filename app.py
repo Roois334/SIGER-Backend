@@ -12,7 +12,7 @@ import models.password_reset  # noqa: F401  (registra la tabla password_resets)
 
 app = Flask(__name__)
 app.config.from_object(Config)
-CORS(app)
+CORS(app, origins=[Config.FRONTEND_URL, "http://localhost:5001", "http://127.0.0.1:5001"])
 
 # La base de datos (tablas, triggers, procedimientos y el usuario de
 # conexion con permisos limitados) se crea con el script .sql.

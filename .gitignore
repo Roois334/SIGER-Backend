@@ -7,3 +7,14 @@ instance/
 uploads_privados/
 static/uploads/perfiles/
 static/uploads/evidencias/
+.env.*
+.vs/
+respaldo_*.sql
+esquema_siger.sql
+_respaldo_codigo/
+sacar_esquema.py
+respaldo.py
+revisar.py
+aplicar_fk.py
+crear_siger_app.py
+parche_*.py
