@@ -79,6 +79,30 @@ def listar_reportes_gestion():
         return jsonify({"error": str(e)}), 400
 
 
+@reporte_bp.route("/estadisticas", methods=["GET"])
+@permiso_required("emergencias.consultar")
+def estadisticas_reportes():
+    """Indicadores para estadisticas y dashboard (respetan el alcance del usuario)."""
+    try:
+        datos = ReporteService.estadisticas(
+            g.usuario,
+            desde=request.args.get("desde"), hasta=request.args.get("hasta"),
+            municipio_id=request.args.get("municipio_id", type=int),
+            tipo=request.args.get("tipo"), prioridad=request.args.get("prioridad"),
+        )
+        return jsonify(datos), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@reporte_bp.route("/publico", methods=["GET"])
+@login_activo_required
+def listar_reportes_publicos():
+    """Emergencias activas de la comunidad con datos recortados (sin informacion personal)."""
+    reportes = ReporteService.list_reportes_publicos(g.usuario)
+    return jsonify({"reportes": reportes}), 200
+
+
 @reporte_bp.route("/<int:reporte_id>", methods=["GET"])
 @login_activo_required
 def obtener_reporte(reporte_id):
