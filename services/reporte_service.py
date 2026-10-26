@@ -80,11 +80,15 @@ LON_MIN, LON_MAX = -75.0, -73.8
 # Colombia no tiene horario de verano: UTC-5 fijo (no depende de tzdata/Windows).
 ZONA_COLOMBIA = timezone(timedelta(hours=-5))
 
+# HU-11: organismos de apoyo (se definen con la emergencia asignada o en atencion)
+ESTADOS_APOYO = ("asignado", "en_atencion")
+MAX_APOYOS = 5
+
 # Datos relacionados que usan los listados: se piden de una vez (la base es remota y cada consulta tarda)
 _CARGA_REPORTE = (
     joinedload(Reporte.municipio), joinedload(Reporte.ciudadano),
     joinedload(Reporte.organismo), joinedload(Reporte.asignado_por),
-    selectinload(Reporte.evidencias),
+    selectinload(Reporte.evidencias), selectinload(Reporte.apoyos),
 )
 
 
@@ -190,6 +194,7 @@ class ReporteService:
             area_afectada=r.area_afectada,
             riesgo_propagacion=r.riesgo_propagacion,
             fecha_actualizacion=r.fecha_actualizacion or r.fecha_hora,
+            apoyos=[{"id": o.id, "nombre": o.nombre} for o in r.apoyos],
             asignado_por=f"{r.asignado_por.nombre} {r.asignado_por.apellido}".strip() if r.asignado_por else None,
         )
 
@@ -346,7 +351,8 @@ class ReporteService:
             return True
         if rol == ORGANISMO_ATENCION:
             # Solo ve lo que el gestor le ASIGNO a su organismo en su municipio
-            return ReporteService._es_organismo_del_reporte(reporte, usuario)
+            return (ReporteService._es_organismo_del_reporte(reporte, usuario)
+                    or ReporteService._es_apoyo_del_reporte(reporte, usuario))
         if tiene_alcance_municipal(rol):
             return usuario.municipio_id is not None and reporte.municipio_id == usuario.municipio_id
         return False
@@ -359,6 +365,22 @@ class ReporteService:
             and usuario.municipio_id is not None
             and reporte.municipio_id == usuario.municipio_id
         )
+
+    @staticmethod
+    def _es_apoyo_del_reporte(reporte, usuario):
+        """Organismo de APOYO: ve la emergencia, pero no cambia su estado."""
+        return (
+            usuario.organismo_id is not None
+            and usuario.municipio_id is not None
+            and reporte.municipio_id == usuario.municipio_id
+            and any(o.id == usuario.organismo_id for o in reporte.apoyos)
+        )
+
+    @staticmethod
+    def _filtro_organismo(organismo_id):
+        """Reportes donde el organismo es el principal o uno de apoyo."""
+        return db.or_(Reporte.organismo_id == organismo_id,
+                      Reporte.apoyos.any(Organismo.id == organismo_id))
 
     @staticmethod
     def _puede_gestionar(reporte, usuario):
@@ -387,6 +409,7 @@ class ReporteService:
             "resolver": atiende and e == "en_atencion",
             "cerrar": gestiona and e == "resuelto",
             "reclasificar": gestiona and e in ESTADOS_RECLASIFICABLES,
+            "apoyo": gestiona and e in ESTADOS_APOYO,
         }
 
     @staticmethod
@@ -435,8 +458,9 @@ class ReporteService:
         d = ReporteService._to_dto(reporte).to_dict()
         acciones = ReporteService._acciones(reporte, usuario)
         d["acciones"] = acciones
+        d["es_apoyo"] = ReporteService._es_apoyo_del_reporte(reporte, usuario)
         d["historial"] = ReporteService._historial(reporte, usuario)
-        if acciones["asignar"]:
+        if acciones["asignar"] or acciones["apoyo"]:
             d["organismos_disponibles"] = ReporteService._organismos_para(reporte)
         return d
 
@@ -552,6 +576,8 @@ class ReporteService:
         reasigna = anterior == "asignado"
 
         r.organismo_id = organismo.id
+        if organismo in r.apoyos:  # el nuevo principal ya no es de apoyo
+            r.apoyos.remove(organismo)
         r.estado = "asignado"
         r.asignado_por_id = usuario.id
         r.fecha_asignacion = _ahora()
@@ -565,6 +591,52 @@ class ReporteService:
         partes = [texto] + notas + ([comentario] if comentario else [])
         ReporteService._registrar(r, usuario, "reasignar" if reasigna else "asignar",
                                   anterior, "asignado", ". ".join(partes)[:MAX_COMENTARIO])
+        db.session.commit()
+        return ReporteService._detalle(r, usuario)
+
+    @staticmethod
+    def definir_apoyos(reporte_id, organismo_ids, usuario):
+        """
+        El gestor define los organismos de APOYO de una emergencia asignada o en atencion.
+        Recibe la lista completa (los que no vengan se retiran). Queda en el historial.
+        """
+        r = ReporteService._reporte_accesible(reporte_id, usuario)
+        if not ReporteService._puede_gestionar(r, usuario):
+            raise PermisoError("Solo el gestor del municipio puede definir los organismos de apoyo")
+        if r.estado not in ESTADOS_APOYO:
+            raise ValueError("Los organismos de apoyo se definen con la emergencia asignada o en atencion. Recarga la pagina")
+        if organismo_ids is None:
+            organismo_ids = []
+        if not isinstance(organismo_ids, (list, tuple)):
+            raise ValueError("Lista de organismos de apoyo invalida")
+        try:
+            ids = {int(v) for v in organismo_ids}
+        except (TypeError, ValueError):
+            raise ValueError("Organismo de apoyo invalido")
+        if len(ids) > MAX_APOYOS:
+            raise ValueError(f"Maximo {MAX_APOYOS} organismos de apoyo por emergencia")
+        if r.organismo_id in ids:
+            raise ValueError("El organismo principal no puede ser tambien de apoyo")
+        nuevos = Organismo.query.filter(Organismo.id.in_(ids)).all() if ids else []
+        if len(nuevos) != len(ids):
+            raise ValueError("Organismo de apoyo no valido")
+        for o in nuevos:
+            if not o.activo or r.municipio_id not in [m.id for m in o.municipios]:
+                raise ValueError(f"{o.nombre} no esta disponible en el municipio del reporte")
+
+        actuales = {o.id: o for o in r.apoyos}
+        agregados = sorted((o.nombre for o in nuevos if o.id not in actuales))
+        retirados = sorted((o.nombre for i, o in actuales.items() if i not in ids))
+        if not agregados and not retirados:
+            raise ValueError("No hay cambios en los organismos de apoyo")
+
+        r.apoyos = sorted(nuevos, key=lambda o: o.nombre)
+        partes = []
+        if agregados:
+            partes.append("Apoyo agregado: " + ", ".join(agregados))
+        if retirados:
+            partes.append("Apoyo retirado: " + ", ".join(retirados))
+        ReporteService._registrar(r, usuario, "apoyo", r.estado, r.estado, ". ".join(partes)[:MAX_COMENTARIO])
         db.session.commit()
         return ReporteService._detalle(r, usuario)
 
@@ -597,6 +669,7 @@ class ReporteService:
             comentario = ReporteService._comentario(comentario, obligatorio=True)
             r.estado = "pendiente"
             r.organismo_id = None
+            r.apoyos = []  # vuelve al gestor: los apoyos se definen de nuevo al asignar
             r.asignado_por_id = None
             r.fecha_asignacion = None
 
@@ -675,7 +748,7 @@ class ReporteService:
             if usuario.rol.nombre == ORGANISMO_ATENCION:
                 if not usuario.organismo_id:
                     raise ValueError("Tu usuario no tiene un organismo asignado. Contacta al administrador")
-                query = query.filter(Reporte.organismo_id == usuario.organismo_id)
+                query = query.filter(ReporteService._filtro_organismo(usuario.organismo_id))
         if municipio_id:
             query = query.filter(Reporte.municipio_id == municipio_id)
         if tipo:
@@ -784,7 +857,7 @@ class ReporteService:
                 # El organismo solo ve lo que el gestor le asigno
                 if not usuario.organismo_id:
                     raise ValueError("Tu usuario no tiene un organismo asignado. Contacta al administrador")
-                query = query.filter(Reporte.organismo_id == usuario.organismo_id)
+                query = query.filter(ReporteService._filtro_organismo(usuario.organismo_id))
 
         if busqueda:
             like = f"%{busqueda.strip()}%"
@@ -818,7 +891,14 @@ class ReporteService:
             query = query.filter(Reporte.fecha_hora < f_hasta + timedelta(days=1))
 
         reportes = query.options(*_CARGA_REPORTE).order_by(Reporte.fecha_hora.desc()).all()
-        return [ReporteService._to_dto(r).to_dict() for r in reportes]
+        salida = []
+        for r in reportes:
+            d = ReporteService._to_dto(r).to_dict()
+            # para el organismo: marca las emergencias donde solo es de apoyo
+            d["es_apoyo"] = bool(usuario is not None and usuario.rol.nombre == ORGANISMO_ATENCION
+                                 and r.organismo_id != usuario.organismo_id)
+            salida.append(d)
+        return salida
 
     @staticmethod
     def get_evidencia_autorizada(evidencia_id, usuario):

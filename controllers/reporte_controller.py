@@ -152,6 +152,18 @@ def cambiar_estado_reporte(reporte_id):
         return _error(e)
 
 
+@reporte_bp.route("/<int:reporte_id>/apoyo", methods=["POST"])
+@login_activo_required
+def definir_apoyos_reporte(reporte_id):
+    """El gestor define los organismos de apoyo de una emergencia asignada o en atencion."""
+    data = request.get_json(silent=True) or {}
+    try:
+        reporte = ReporteService.definir_apoyos(reporte_id, data.get("organismo_ids"), g.usuario)
+        return jsonify({"reporte": reporte}), 200
+    except ValueError as e:
+        return _error(e)
+
+
 @reporte_bp.route("/<int:reporte_id>/tipo", methods=["POST"])
 @login_activo_required
 def cambiar_tipo_reporte(reporte_id):
