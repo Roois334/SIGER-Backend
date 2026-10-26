@@ -189,6 +189,7 @@ class ReporteService:
             vias_afectadas=r.vias_afectadas,
             area_afectada=r.area_afectada,
             riesgo_propagacion=r.riesgo_propagacion,
+            fecha_actualizacion=r.fecha_actualizacion or r.fecha_hora,
             asignado_por=f"{r.asignado_por.nombre} {r.asignado_por.apellido}".strip() if r.asignado_por else None,
         )
 
@@ -294,6 +295,7 @@ class ReporteService:
                 heridos=heridos,
                 estado="pendiente",
                 fecha_hora=_ahora(),
+                fecha_actualizacion=_ahora(),
             )
             db.session.add(reporte)
             try:
@@ -460,6 +462,7 @@ class ReporteService:
 
     @staticmethod
     def _registrar(reporte, usuario, accion, anterior, nuevo, comentario):
+        reporte.fecha_actualizacion = _ahora()  # hora de Colombia, igual que fecha_hora
         db.session.add(ReporteHistorial(
             reporte_id=reporte.id, usuario_id=usuario.id, accion=accion,
             estado_anterior=anterior, estado_nuevo=nuevo,
