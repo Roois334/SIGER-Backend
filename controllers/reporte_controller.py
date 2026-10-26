@@ -103,6 +103,8 @@ def asignar_reporte(reporte_id):
         reporte = ReporteService.asignar_reporte(
             reporte_id, data.get("organismo_id"), g.usuario,
             prioridad=data.get("prioridad"), comentario=data.get("comentario"),
+            vias_afectadas=data.get("vias_afectadas"), area_afectada=data.get("area_afectada"),
+            riesgo_propagacion=data.get("riesgo_propagacion"),
         )
         return jsonify({"reporte": reporte}), 200
     except ValueError as e:
