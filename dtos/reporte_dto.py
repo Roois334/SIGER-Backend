@@ -3,7 +3,7 @@ import os
 
 class ReporteCreateDTO:
     def __init__(self, tipo, municipio_id, direccion, descripcion,
-                 latitud=None, longitud=None, afectados=0):
+                 latitud=None, longitud=None, afectados=0, heridos=0):
         self.tipo = tipo
         self.municipio_id = municipio_id
         self.direccion = direccion
@@ -11,6 +11,7 @@ class ReporteCreateDTO:
         self.latitud = latitud
         self.longitud = longitud
         self.afectados = afectados
+        self.heridos = heridos
 
 
 _TIPOS_ARCHIVO = {
@@ -42,7 +43,8 @@ class ReporteDTO:
     def __init__(self, id, folio, tipo, prioridad, descripcion, direccion, latitud, longitud,
                  afectados, estado, fecha_hora, ciudadano_id, municipio_nombre,
                  evidencias=None, ciudadano_nombre=None,
-                 organismo_id=None, organismo_nombre=None, fecha_asignacion=None, asignado_por=None):
+                 organismo_id=None, organismo_nombre=None, fecha_asignacion=None, asignado_por=None,
+                 heridos=0, vias_afectadas=None, area_afectada=None, riesgo_propagacion=None):
         self.id = id
         self.folio = folio
         self.tipo = tipo
@@ -52,6 +54,10 @@ class ReporteDTO:
         self.latitud = latitud
         self.longitud = longitud
         self.afectados = afectados
+        self.heridos = heridos
+        self.vias_afectadas = vias_afectadas
+        self.area_afectada = area_afectada
+        self.riesgo_propagacion = riesgo_propagacion
         self.estado = estado
         self.fecha_hora = fecha_hora
         self.ciudadano_id = ciudadano_id
@@ -74,6 +80,10 @@ class ReporteDTO:
             "latitud": self.latitud,
             "longitud": self.longitud,
             "afectados": self.afectados,
+            "heridos": self.heridos,
+            "vias_afectadas": self.vias_afectadas,
+            "area_afectada": self.area_afectada,
+            "riesgo_propagacion": self.riesgo_propagacion,
             "estado": self.estado,
             "fecha_hora": self.fecha_hora.isoformat() if self.fecha_hora else None,
             "ciudadano_id": self.ciudadano_id,

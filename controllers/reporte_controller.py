@@ -33,6 +33,7 @@ def crear_reporte():
         latitud=data.get("latitud", type=float),
         longitud=data.get("longitud", type=float),
         afectados=data.get("afectados", 0),
+        heridos=data.get("heridos", 0),
     )
 
     archivos = request.files.getlist("evidencias")
@@ -70,6 +71,8 @@ def listar_reportes_gestion():
             prioridad=request.args.get("prioridad"),
             municipio_id=request.args.get("municipio_id", type=int),
             usuario=g.usuario,
+            desde=request.args.get("desde"),
+            hasta=request.args.get("hasta"),
         )
         return jsonify({"reportes": reportes}), 200
     except ValueError as e:
@@ -100,6 +103,8 @@ def asignar_reporte(reporte_id):
         reporte = ReporteService.asignar_reporte(
             reporte_id, data.get("organismo_id"), g.usuario,
             prioridad=data.get("prioridad"), comentario=data.get("comentario"),
+            vias_afectadas=data.get("vias_afectadas"), area_afectada=data.get("area_afectada"),
+            riesgo_propagacion=data.get("riesgo_propagacion"),
         )
         return jsonify({"reporte": reporte}), 200
     except ValueError as e:
@@ -117,6 +122,20 @@ def cambiar_estado_reporte(reporte_id):
     try:
         reporte = ReporteService.cambiar_estado(
             reporte_id, data.get("accion"), g.usuario, comentario=data.get("comentario"),
+        )
+        return jsonify({"reporte": reporte}), 200
+    except ValueError as e:
+        return _error(e)
+
+
+@reporte_bp.route("/<int:reporte_id>/tipo", methods=["POST"])
+@login_activo_required
+def cambiar_tipo_reporte(reporte_id):
+    """El gestor corrige el tipo de una emergencia abierta (motivo obligatorio)."""
+    data = request.get_json(silent=True) or {}
+    try:
+        reporte = ReporteService.cambiar_tipo(
+            reporte_id, data.get("tipo"), g.usuario, comentario=data.get("comentario"),
         )
         return jsonify({"reporte": reporte}), 200
     except ValueError as e:

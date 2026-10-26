@@ -2,12 +2,14 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload, selectinload
 from werkzeug.utils import secure_filename
 
 from extensions import db
 from models.reporte import Reporte, Evidencia, ReporteHistorial
 from models.catalogos import Municipio, Organismo, organismo_municipio
 from dtos.reporte_dto import ReporteDTO, EvidenciaDTO
+from utilities.prioridad import calcular_prioridad, RIESGOS, MAX_VIAS, MAX_AREA
 from utilities.permisos import (
     ADMINISTRADOR, GESTOR_MUNICIPAL, ORGANISMO_ATENCION,
     tiene_alcance_municipal, tiene_permiso,
@@ -33,9 +35,11 @@ PRIORIDAD_POR_TIPO = {
     "Otro": "media",
 }
 
-# Flujo: pendiente -> asignado -> en_atencion -> resuelto   (o descartado)
+# Flujo: pendiente -> asignado -> en_atencion -> resuelto -> cerrado   (o descartado)
 PRIORIDADES = ["baja", "media", "alta", "critica"]
 MIN_COMENTARIO_OBLIGATORIO = 5
+# Mientras la emergencia siga abierta el gestor puede corregir su tipo
+ESTADOS_RECLASIFICABLES = ("pendiente", "asignado", "en_atencion")
 MAX_COMENTARIO = 300
 
 # Organismos que normalmente atienden cada tipo (solo para SUGERIR al gestor;
@@ -68,6 +72,13 @@ LON_MIN, LON_MAX = -75.0, -73.8
 
 # Colombia no tiene horario de verano: UTC-5 fijo (no depende de tzdata/Windows).
 ZONA_COLOMBIA = timezone(timedelta(hours=-5))
+
+# Datos relacionados que usan los listados: se piden de una vez (la base es remota y cada consulta tarda)
+_CARGA_REPORTE = (
+    joinedload(Reporte.municipio), joinedload(Reporte.ciudadano),
+    joinedload(Reporte.organismo), joinedload(Reporte.asignado_por),
+    selectinload(Reporte.evidencias),
+)
 
 
 def _ahora():
@@ -167,6 +178,10 @@ class ReporteService:
             organismo_id=r.organismo_id,
             organismo_nombre=r.organismo.nombre if r.organismo else None,
             fecha_asignacion=r.fecha_asignacion,
+            heridos=r.heridos or 0,
+            vias_afectadas=r.vias_afectadas,
+            area_afectada=r.area_afectada,
+            riesgo_propagacion=r.riesgo_propagacion,
             asignado_por=f"{r.asignado_por.nombre} {r.asignado_por.apellido}".strip() if r.asignado_por else None,
         )
 
@@ -237,8 +252,22 @@ class ReporteService:
         return validos
 
     @staticmethod
+    def _validar_heridos(dto, afectados):
+        """Heridos: entero >= 0 y nunca mayor que las personas afectadas."""
+        try:
+            heridos = int(str(getattr(dto, "heridos", 0) or 0).strip() or 0)
+        except (ValueError, TypeError):
+            raise ValueError("El numero de heridos debe ser un entero valido")
+        if heridos < 0:
+            raise ValueError("El numero de heridos no puede ser negativo")
+        if heridos > afectados:
+            raise ValueError("El numero de heridos no puede ser mayor que el de personas afectadas")
+        return heridos
+
+    @staticmethod
     def create_reporte(dto, ciudadano_id, archivos=None, upload_folder=None):
         afectados = ReporteService._validar_campos(dto)
+        heridos = ReporteService._validar_heridos(dto, afectados)
         archivos_validos = ReporteService._validar_archivos(archivos)
 
         # --- Creacion del reporte (folio unico; reintenta si dos envios chocan) ---
@@ -255,6 +284,7 @@ class ReporteService:
                 latitud=dto.latitud,
                 longitud=dto.longitud,
                 afectados=afectados,
+                heridos=heridos,
                 estado="pendiente",
                 fecha_hora=_ahora(),
             )
@@ -346,6 +376,8 @@ class ReporteService:
             "iniciar": atiende and e == "asignado",
             "devolver": atiende and e == "asignado",
             "resolver": atiende and e == "en_atencion",
+            "cerrar": gestiona and e == "resuelto",
+            "reclasificar": gestiona and e in ESTADOS_RECLASIFICABLES,
         }
 
     @staticmethod
@@ -366,6 +398,13 @@ class ReporteService:
         return lista
 
     @staticmethod
+    def _comentario_visible(h, es_ciudadano):
+        """Al ciudadano solo se le muestra a quien se asigno; prioridad, puntos e indicaciones son internos."""
+        if es_ciudadano and h.accion in ("asignar", "reasignar") and h.comentario:
+            return h.comentario.split(". ")[0]
+        return h.comentario
+
+    @staticmethod
     def _historial(reporte, usuario):
         es_ciudadano = usuario.id == reporte.ciudadano_id and usuario.rol.nombre != ADMINISTRADOR
         items = []
@@ -376,7 +415,7 @@ class ReporteService:
                 "accion": h.accion,
                 "estado_anterior": h.estado_anterior,
                 "estado_nuevo": h.estado_nuevo,
-                "comentario": h.comentario,
+                "comentario": ReporteService._comentario_visible(h, es_ciudadano),
                 "fecha": h.fecha.isoformat() if h.fecha else None,
                 "autor": f"{h.usuario.nombre} {h.usuario.apellido}".strip() if h.usuario else None,
             })
@@ -430,7 +469,35 @@ class ReporteService:
         return r
 
     @staticmethod
-    def asignar_reporte(reporte_id, organismo_id, usuario, prioridad=None, comentario=None):
+    def _entero_opcional(valor, nombre, maximo):
+        if valor is None or str(valor).strip() == "":
+            return None
+        try:
+            n = int(str(valor).strip())
+        except ValueError:
+            raise ValueError(f"{nombre} debe ser un numero entero")
+        if n < 0 or n > maximo:
+            raise ValueError(f"{nombre} debe estar entre 0 y {maximo}")
+        return n
+
+    @staticmethod
+    def _aplicar_variables(r, vias, area, riesgo):
+        """Guarda las variables de prioridad (vacio = no cambia). Devuelve True si algo cambio."""
+        vias = ReporteService._entero_opcional(vias, "Las vias afectadas", MAX_VIAS)
+        area = ReporteService._entero_opcional(area, "El area afectada", MAX_AREA)
+        riesgo = (riesgo or "").strip().lower() or None
+        if riesgo and riesgo not in RIESGOS:
+            raise ValueError("Riesgo de propagacion invalido")
+        cambio = False
+        for campo, valor in (("vias_afectadas", vias), ("area_afectada", area), ("riesgo_propagacion", riesgo)):
+            if valor is not None and valor != getattr(r, campo):
+                setattr(r, campo, valor)
+                cambio = True
+        return cambio
+
+    @staticmethod
+    def asignar_reporte(reporte_id, organismo_id, usuario, prioridad=None, comentario=None,
+                        vias_afectadas=None, area_afectada=None, riesgo_propagacion=None):
         """
         El gestor ACEPTA el reporte y lo asigna a un organismo. Solo desde ese
         momento el organismo (de ese municipio) puede verlo.
@@ -451,12 +518,21 @@ class ReporteService:
             raise ValueError("Ese organismo no opera en el municipio del reporte")
 
         notas = []
-        if prioridad:
-            if prioridad not in PRIORIDADES:
-                raise ValueError("Prioridad invalida")
-            if prioridad != r.prioridad:
-                notas.append(f"Prioridad: {r.prioridad} -> {prioridad}")
-                r.prioridad = prioridad
+        if prioridad and prioridad != "auto" and prioridad not in PRIORIDADES:
+            raise ValueError("Prioridad invalida")
+        if ReporteService._aplicar_variables(r, vias_afectadas, area_afectada, riesgo_propagacion):
+            notas.append("Variables de prioridad actualizadas")
+        nueva = None
+        if prioridad == "auto":
+            nueva, puntos = calcular_prioridad(
+                PRIORIDAD_POR_TIPO.get(r.tipo, "media"), r.afectados, r.heridos,
+                r.vias_afectadas, r.area_afectada, r.riesgo_propagacion)
+        elif prioridad:
+            nueva, puntos = prioridad, None
+        if nueva and nueva != r.prioridad:
+            origen = f" (calculada, {puntos} pts)" if puntos is not None else ""
+            notas.append(f"Prioridad: {r.prioridad} -> {nueva}{origen}")
+            r.prioridad = nueva
         comentario = ReporteService._comentario(comentario)
 
         anterior = r.estado
@@ -470,8 +546,12 @@ class ReporteService:
         r.asignado_por_id = usuario.id
         r.fecha_asignacion = _ahora()
 
-        texto = (f"Reasignado de {previo} a {organismo.nombre}" if reasigna and previo
-                 else f"Asignado a {organismo.nombre}")
+        if reasigna and previo and previo != organismo.nombre:
+            texto = f"Reasignado de {previo} a {organismo.nombre}"
+        elif reasigna and previo:
+            texto = f"Datos actualizados para {organismo.nombre}"
+        else:
+            texto = f"Asignado a {organismo.nombre}"
         partes = [texto] + notas + ([comentario] if comentario else [])
         ReporteService._registrar(r, usuario, "reasignar" if reasigna else "asignar",
                                   anterior, "asignado", ". ".join(partes)[:MAX_COMENTARIO])
@@ -484,7 +564,7 @@ class ReporteService:
         Acciones: descartar (gestor), iniciar / resolver / devolver (organismo asignado).
         Cada una solo funciona si el reporte esta en el estado correcto.
         """
-        if accion not in ("descartar", "iniciar", "resolver", "devolver"):
+        if accion not in ("descartar", "iniciar", "resolver", "devolver", "cerrar"):
             raise ValueError("Accion no valida")
         r = ReporteService._reporte_accesible(reporte_id, usuario)
         if not ReporteService._acciones(r, usuario).get(accion):
@@ -500,6 +580,9 @@ class ReporteService:
         elif accion == "resolver":
             comentario = ReporteService._comentario(comentario)
             r.estado = "resuelto"
+        elif accion == "cerrar":  # el gestor confirma el cierre; queda en el historial con su nombre y fecha
+            comentario = ReporteService._comentario(comentario)
+            r.estado = "cerrado"
         else:  # devolver: el organismo no puede atenderlo, vuelve al gestor
             comentario = ReporteService._comentario(comentario, obligatorio=True)
             r.estado = "pendiente"
@@ -512,16 +595,54 @@ class ReporteService:
         return ReporteService._detalle(r, usuario)
 
     @staticmethod
+    def cambiar_tipo(reporte_id, nuevo_tipo, usuario, comentario=None):
+        """
+        El gestor del municipio (o el administrador) corrige el tipo de una emergencia abierta.
+        El motivo es obligatorio y queda en el historial con el tipo anterior y el nuevo.
+        La prioridad NO cambia sola: se ajusta al asignar.
+        """
+        r = ReporteService._reporte_accesible(reporte_id, usuario)
+        if not ReporteService._puede_gestionar(r, usuario):
+            raise PermisoError("Solo el gestor del municipio puede cambiar el tipo de la emergencia")
+        if r.estado not in ESTADOS_RECLASIFICABLES:
+            raise ValueError("Esta emergencia ya no se puede reclasificar (esta " + r.estado + "). Recarga la pagina")
+        if not nuevo_tipo or nuevo_tipo not in TIPOS_EMERGENCIA:
+            raise ValueError("Debes seleccionar un tipo de emergencia valido")
+        if nuevo_tipo == r.tipo:
+            raise ValueError("La emergencia ya tiene ese tipo")
+        motivo = ReporteService._comentario(comentario, obligatorio=True)
+
+        anterior_tipo = r.tipo
+        r.tipo = nuevo_tipo
+        texto = f"Tipo: {anterior_tipo} → {nuevo_tipo}. {motivo}"[:300]
+        ReporteService._registrar(r, usuario, "reclasificar", r.estado, r.estado, texto)
+        db.session.commit()
+        return ReporteService._detalle(r, usuario)
+
+    @staticmethod
     def list_reportes_ciudadano(ciudadano_id):
         reportes = (
             Reporte.query.filter_by(ciudadano_id=ciudadano_id)
+            .options(*_CARGA_REPORTE)
             .order_by(Reporte.fecha_hora.desc())
             .all()
         )
         return [ReporteService._to_dto(r).to_dict() for r in reportes]
 
     @staticmethod
-    def list_reportes_gestion(busqueda=None, tipo=None, estado=None, prioridad=None, municipio_id=None, usuario=None):
+    def _parsear_fecha(texto, nombre):
+        """Acepta AAAA-MM-DD (lo que envia el campo de fecha). Vacio = sin filtro."""
+        texto = (texto or "").strip()
+        if not texto:
+            return None
+        try:
+            return datetime.strptime(texto, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError(f"La fecha '{nombre}' no es valida")
+
+    @staticmethod
+    def list_reportes_gestion(busqueda=None, tipo=None, estado=None, prioridad=None, municipio_id=None, usuario=None,
+                              desde=None, hasta=None):
         """
         Listado para gestion, con filtros opcionales.
         Gestores y organismos quedan limitados a SU municipio, sin importar
@@ -561,7 +682,16 @@ class ReporteService:
         if municipio_id:
             query = query.filter(Reporte.municipio_id == municipio_id)
 
-        reportes = query.order_by(Reporte.fecha_hora.desc()).all()
+        f_desde = ReporteService._parsear_fecha(desde, "desde")
+        f_hasta = ReporteService._parsear_fecha(hasta, "hasta")
+        if f_desde and f_hasta and f_desde > f_hasta:
+            raise ValueError("La fecha 'desde' no puede ser posterior a la fecha 'hasta'")
+        if f_desde:
+            query = query.filter(Reporte.fecha_hora >= f_desde)
+        if f_hasta:  # incluye todo el dia final
+            query = query.filter(Reporte.fecha_hora < f_hasta + timedelta(days=1))
+
+        reportes = query.options(*_CARGA_REPORTE).order_by(Reporte.fecha_hora.desc()).all()
         return [ReporteService._to_dto(r).to_dict() for r in reportes]
 
     @staticmethod

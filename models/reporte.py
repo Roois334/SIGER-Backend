@@ -17,6 +17,11 @@ class Reporte(db.Model):
     latitud = db.Column(db.Float, nullable=True)
     longitud = db.Column(db.Float, nullable=True)
     afectados = db.Column(db.Integer, nullable=False, default=0)
+    heridos = db.Column(db.Integer, nullable=False, default=0)
+    # HU-10: variables que el gestor evalua para calcular la prioridad
+    vias_afectadas = db.Column(db.Integer, nullable=True)
+    area_afectada = db.Column(db.Integer, nullable=True)  # metros cuadrados
+    riesgo_propagacion = db.Column(db.String(10), nullable=True)  # bajo / medio / alto
 
     # pendiente -> asignado -> en_atencion -> resuelto   (o descartado)
     estado = db.Column(db.String(20), nullable=False, default="pendiente")

@@ -15,6 +15,9 @@ class User(db.Model):
     organismo_id = db.Column(db.Integer, db.ForeignKey("organismos.id"), nullable=True)
     activo = db.Column(db.Boolean, nullable=False, default=True)
     foto_url = db.Column(db.String(255), nullable=True)
+    tipo_documento = db.Column(db.String(10), nullable=True)
+    documento = db.Column(db.String(20), nullable=True)
+    telefono = db.Column(db.String(20), nullable=True)
     fecha_creacion = db.Column(db.DateTime, server_default=db.func.now())
     fecha_actualizacion = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
 
