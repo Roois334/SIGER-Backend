@@ -66,4 +66,6 @@ class Config:
 
     # --- JWT ---
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", SECRET_KEY)
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=int(os.environ.get("JWT_EXPIRES_HOURS", "2")))
+    # Duracion del token en MINUTOS (por defecto 20). Se cambia con JWT_EXPIRES_MINUTES en el .env.
+    # Minimo 1. Nunca pongas 0: en esta libreria 0 significa "no vence nunca".
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=max(1, int(os.environ.get("JWT_EXPIRES_MINUTES", "20"))))
