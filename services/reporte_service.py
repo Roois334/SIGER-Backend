@@ -645,6 +645,52 @@ class ReporteService:
         return ReporteService._detalle(r, usuario)
 
     @staticmethod
+    def definir_apoyos(reporte_id, organismo_ids, usuario):
+        """
+        El gestor define los organismos de APOYO de una emergencia asignada o en atencion.
+        Recibe la lista completa (los que no vengan se retiran). Queda en el historial.
+        """
+        r = ReporteService._reporte_accesible(reporte_id, usuario)
+        if not ReporteService._puede_gestionar(r, usuario):
+            raise PermisoError("Solo el gestor del municipio puede definir los organismos de apoyo")
+        if r.estado not in ESTADOS_APOYO:
+            raise ValueError("Los organismos de apoyo se definen con la emergencia asignada o en atencion. Recarga la pagina")
+        if organismo_ids is None:
+            organismo_ids = []
+        if not isinstance(organismo_ids, (list, tuple)):
+            raise ValueError("Lista de organismos de apoyo invalida")
+        try:
+            ids = {int(v) for v in organismo_ids}
+        except (TypeError, ValueError):
+            raise ValueError("Organismo de apoyo invalido")
+        if len(ids) > MAX_APOYOS:
+            raise ValueError(f"Maximo {MAX_APOYOS} organismos de apoyo por emergencia")
+        if r.organismo_id in ids:
+            raise ValueError("El organismo principal no puede ser tambien de apoyo")
+        nuevos = Organismo.query.filter(Organismo.id.in_(ids)).all() if ids else []
+        if len(nuevos) != len(ids):
+            raise ValueError("Organismo de apoyo no valido")
+        for o in nuevos:
+            if not o.activo or r.municipio_id not in [m.id for m in o.municipios]:
+                raise ValueError(f"{o.nombre} no esta disponible en el municipio del reporte")
+
+        actuales = {o.id: o for o in r.apoyos}
+        agregados = sorted((o.nombre for o in nuevos if o.id not in actuales))
+        retirados = sorted((o.nombre for i, o in actuales.items() if i not in ids))
+        if not agregados and not retirados:
+            raise ValueError("No hay cambios en los organismos de apoyo")
+
+        r.apoyos = sorted(nuevos, key=lambda o: o.nombre)
+        partes = []
+        if agregados:
+            partes.append("Apoyo agregado: " + ", ".join(agregados))
+        if retirados:
+            partes.append("Apoyo retirado: " + ", ".join(retirados))
+        ReporteService._registrar(r, usuario, "apoyo", r.estado, r.estado, ". ".join(partes)[:MAX_COMENTARIO])
+        db.session.commit()
+        return ReporteService._detalle(r, usuario)
+
+    @staticmethod
     def cambiar_estado(reporte_id, accion, usuario, comentario=None):
         """
         Acciones: descartar (gestor), iniciar / resolver / devolver (organismo asignado).
