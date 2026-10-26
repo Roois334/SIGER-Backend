@@ -5,7 +5,7 @@ from models.user import User
 from models.catalogos import Rol, Municipio, Organismo
 from dtos.user_dto import UserAdminDTO
 from utilities.validaciones import validar_password
-from utilities.validaciones_persona import validar_documento, validar_telefono
+from utilities.validaciones_persona import validar_documento, validar_telefono, validar_nombre
 import os
 import uuid
 from werkzeug.utils import secure_filename
@@ -80,11 +80,12 @@ class UserService:
                 raise ValueError("Ya existe una cuenta con ese correo")
             user.email = email
 
-        if dto.nombre:
-            user.nombre = dto.nombre.strip()
+        # Solo se valida si el nombre cambio (cuentas antiguas con otro formato siguen editables)
+        if dto.nombre and dto.nombre.strip() != user.nombre:
+            user.nombre = validar_nombre(dto.nombre, "El nombre")
 
-        if dto.apellido:
-            user.apellido = dto.apellido.strip()
+        if dto.apellido and dto.apellido.strip() != user.apellido:
+            user.apellido = validar_nombre(dto.apellido, "El apellido")
 
         if dto.municipio is not None:
             if dto.municipio == "":
@@ -164,8 +165,10 @@ class UserService:
         apellido = (apellido or "").strip()
         if not nombre or not apellido:
             raise ValueError("El nombre y el apellido son obligatorios")
-        if len(nombre) > 80 or len(apellido) > 80:
-            raise ValueError("El nombre y el apellido no pueden superar 80 caracteres")
+        if nombre != user.nombre:
+            nombre = validar_nombre(nombre, "El nombre")
+        if apellido != user.apellido:
+            apellido = validar_nombre(apellido, "El apellido")
         user.nombre = nombre
         user.apellido = apellido
 

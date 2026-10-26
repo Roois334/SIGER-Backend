@@ -9,15 +9,15 @@ from extensions import db
 from controllers.auth_controller import auth_bp
 from controllers.user_controller import user_bp
 import models.password_reset  # noqa: F401  (registra la tabla password_resets)
+import models.notificacion  # noqa: F401  (registra la tabla notificaciones)
 
 app = Flask(__name__)
 app.config.from_object(Config)
 CORS(app, origins=[Config.FRONTEND_URL, "http://localhost:5001", "http://127.0.0.1:5001"])
 
-# La base de datos (tablas, triggers, procedimientos y el usuario de
-# conexion con permisos limitados) se crea con el script .sql.
-# El usuario 'siger_app' solo tiene SELECT/INSERT/UPDATE/DELETE/EXECUTE,
-# por eso aqui NO se hace db.create_all(): la app no tiene permisos de DDL.
+# La estructura de la base (tablas, triggers y datos de catalogo) sale de database/siger_db.sql.
+# Por eso aqui NO se hace db.create_all(). Si cambias un modelo, actualiza la base y
+# vuelve a exportar el esquema con database/exportar_esquema.py.
 db.init_app(app)
 jwt = JWTManager(app)
 app.register_blueprint(auth_bp)
@@ -30,6 +30,15 @@ app.register_blueprint(organismo_bp)
 
 from controllers.reporte_controller import reporte_bp
 app.register_blueprint(reporte_bp)
+
+from controllers.notificacion_controller import notificacion_bp
+app.register_blueprint(notificacion_bp)
+
+from controllers.publico_controller import publico_bp
+app.register_blueprint(publico_bp)
+
+from controllers.estadistica_controller import estadistica_bp
+app.register_blueprint(estadistica_bp)
 
 @app.errorhandler(413)
 def archivo_demasiado_grande(e):
