@@ -8,6 +8,7 @@ uploads_privados/
 static/uploads/perfiles/
 static/uploads/evidencias/
 .env.*
+!.env.example
 .vs/
 respaldo_*.sql
 esquema_siger.sql
@@ -18,3 +19,4 @@ revisar.py
 aplicar_fk.py
 crear_siger_app.py
 parche_*.py
+ajustar_*.py

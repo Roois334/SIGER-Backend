@@ -1,6 +1,15 @@
 from extensions import db
 
 
+# HU-11: organismos de apoyo de una emergencia (el principal sigue en reportes.organismo_id)
+reporte_apoyo = db.Table(
+    "reporte_apoyo",
+    db.Column("reporte_id", db.Integer, db.ForeignKey("reportes.id"), primary_key=True),
+    db.Column("organismo_id", db.Integer, db.ForeignKey("organismos.id"), primary_key=True),
+    db.Column("fecha", db.DateTime, server_default=db.func.now()),
+)
+
+
 class Reporte(db.Model):
     __tablename__ = "reportes"
 
@@ -39,6 +48,7 @@ class Reporte(db.Model):
     asignado_por = db.relationship("User", foreign_keys=[asignado_por_id])
     municipio = db.relationship("Municipio")
     organismo = db.relationship("Organismo")
+    apoyos = db.relationship("Organismo", secondary=reporte_apoyo, order_by="Organismo.nombre")
     evidencias = db.relationship(
         "Evidencia", backref="reporte", cascade="all, delete-orphan", lazy=True
     )

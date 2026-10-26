@@ -15,10 +15,9 @@ app = Flask(__name__)
 app.config.from_object(Config)
 CORS(app, origins=[Config.FRONTEND_URL, "http://localhost:5001", "http://127.0.0.1:5001"])
 
-# La base de datos (tablas, triggers, procedimientos y el usuario de
-# conexion con permisos limitados) se crea con el script .sql.
-# El usuario 'siger_app' solo tiene SELECT/INSERT/UPDATE/DELETE/EXECUTE,
-# por eso aqui NO se hace db.create_all(): la app no tiene permisos de DDL.
+# La estructura de la base (tablas, triggers y datos de catalogo) sale de database/siger_db.sql.
+# Por eso aqui NO se hace db.create_all(). Si cambias un modelo, actualiza la base y
+# vuelve a exportar el esquema con database/exportar_esquema.py.
 db.init_app(app)
 jwt = JWTManager(app)
 app.register_blueprint(auth_bp)
