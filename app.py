@@ -9,6 +9,7 @@ from extensions import db
 from controllers.auth_controller import auth_bp
 from controllers.user_controller import user_bp
 import models.password_reset  # noqa: F401  (registra la tabla password_resets)
+import models.notificacion  # noqa: F401  (registra la tabla notificaciones)
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -30,6 +31,15 @@ app.register_blueprint(organismo_bp)
 
 from controllers.reporte_controller import reporte_bp
 app.register_blueprint(reporte_bp)
+
+from controllers.notificacion_controller import notificacion_bp
+app.register_blueprint(notificacion_bp)
+
+from controllers.publico_controller import publico_bp
+app.register_blueprint(publico_bp)
+
+from controllers.estadistica_controller import estadistica_bp
+app.register_blueprint(estadistica_bp)
 
 @app.errorhandler(413)
 def archivo_demasiado_grande(e):

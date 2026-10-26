@@ -31,7 +31,7 @@ def _enmascarar(email):
 
 def _correo_html(nombre, enlace, minutos):
     # Mismos colores y formas que la aplicacion web (tema oscuro de SIGER).
-    # Las imagenes (logo, banner con radar, icono) viajan incrustadas en el correo (cid:).
+    # Las imagenes (logo, logo grande, icono) viajan incrustadas en el correo (cid:).
     fuente = "'Plus Jakarta Sans','Segoe UI',Helvetica,Arial,sans-serif"
     return f"""\
 <!doctype html>
@@ -67,8 +67,8 @@ def _correo_html(nombre, enlace, minutos):
   <tr><td bgcolor="#101a29" style="background:#101a29;border:1px solid #1b3a5f;border-radius:20px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
 
-      <tr><td style="padding:0;line-height:0;font-size:0;border-radius:19px 19px 0 0;">
-        <img src="cid:banner@siger" width="558" alt="" style="display:block;width:100%;max-width:558px;height:auto;border:0;border-radius:19px 19px 0 0;">
+      <tr><td align="center" bgcolor="#0d1b2e" style="padding:34px 36px 26px;background:#0d1b2e;background-image:linear-gradient(180deg,#12294a 0%,#101a29 100%);border-radius:19px 19px 0 0;">
+        <img src="cid:logo_grande@siger" width="132" height="132" alt="SIGER" style="display:block;width:132px;height:132px;border:0;border-radius:50%;box-shadow:0 0 0 6px rgba(33,150,243,.14),0 14px 40px rgba(33,150,243,.35);">
       </td></tr>
 
       <tr><td align="center" style="padding:6px 36px 0;">
@@ -188,7 +188,7 @@ class RecuperacionService:
                  "Si no fuiste tú, ignora este mensaje.")
         enviar_correo(user.email, "Restablece tu contraseña de SIGER",
                       _correo_html(user.nombre, enlace, MINUTOS_VALIDEZ), texto, enlace_dev=enlace,
-                      imagenes=["logo", "banner", "ico_escudo"])
+                      imagenes=["logo", "logo_grande", "ico_escudo"])
 
     @staticmethod
     def _buscar_valido(token):

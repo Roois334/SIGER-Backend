@@ -6,7 +6,7 @@ from models.user import User
 from models.catalogos import Rol, Municipio
 from dtos.user_dto import UserResponseDTO
 from utilities.validaciones import validar_email, validar_password
-from utilities.validaciones_persona import validar_documento, validar_telefono
+from utilities.validaciones_persona import validar_documento, validar_telefono, validar_nombre
 
 
 class AuthService:
@@ -17,12 +17,8 @@ class AuthService:
         if not rol:
             raise ValueError("Rol invalido")
 
-        dto.nombre = (dto.nombre or "").strip()
-        dto.apellido = (dto.apellido or "").strip()
-        if not dto.nombre or not dto.apellido:
-            raise ValueError("Nombre y apellido son obligatorios")
-        if len(dto.nombre) > 80 or len(dto.apellido) > 80:
-            raise ValueError("Nombre y apellido no pueden superar 80 caracteres")
+        dto.nombre = validar_nombre(dto.nombre, "El nombre")
+        dto.apellido = validar_nombre(dto.apellido, "El apellido")
 
         dto.email = validar_email(dto.email)
         if User.query.filter_by(email=dto.email).first():

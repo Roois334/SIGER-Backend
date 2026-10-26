@@ -9,6 +9,7 @@ from extensions import db
 from models.reporte import Reporte, Evidencia, ReporteHistorial
 from models.catalogos import Municipio, Organismo, organismo_municipio
 from dtos.reporte_dto import ReporteDTO, EvidenciaDTO
+from services.notificacion_service import NotificacionService
 from utilities.prioridad import calcular_prioridad, RIESGOS, MAX_VIAS, MAX_AREA
 from utilities.permisos import (
     ADMINISTRADOR, GESTOR_MUNICIPAL, ORGANISMO_ATENCION,
@@ -325,6 +326,7 @@ class ReporteService:
                 raise ValueError("No se pudieron guardar las evidencias. Intenta de nuevo")
 
         db.session.commit()
+        NotificacionService.reporte_nuevo(reporte)  # HU-15: avisa al gestor del municipio
         return ReporteService._to_dto(reporte).to_dict()
 
     # ------------------------------------------------------------------ consultas
@@ -540,6 +542,7 @@ class ReporteService:
         if anterior == "asignado" and r.organismo_id == organismo.id and not notas and not comentario:
             raise ValueError("El reporte ya esta asignado a ese organismo")
         reasigna = anterior == "asignado"
+        organismo_previo = r.organismo if reasigna else None
 
         r.organismo_id = organismo.id
         r.estado = "asignado"
@@ -556,6 +559,7 @@ class ReporteService:
         ReporteService._registrar(r, usuario, "reasignar" if reasigna else "asignar",
                                   anterior, "asignado", ". ".join(partes)[:MAX_COMENTARIO])
         db.session.commit()
+        NotificacionService.asignado(r, usuario, organismo, organismo_previo)  # HU-15
         return ReporteService._detalle(r, usuario)
 
     @staticmethod
@@ -571,6 +575,7 @@ class ReporteService:
             raise ValueError("Esa accion ya no esta disponible (el estado del reporte cambio). Recarga la pagina")
 
         anterior = r.estado
+        organismo_accion = r.organismo  # antes de que "devolver" lo suelte
         if accion == "descartar":
             comentario = ReporteService._comentario(comentario, obligatorio=True)
             r.estado = "descartado"
@@ -592,6 +597,7 @@ class ReporteService:
 
         ReporteService._registrar(r, usuario, accion, anterior, r.estado, comentario)
         db.session.commit()
+        NotificacionService.cambio_estado(r, usuario, accion, comentario, organismo_accion)  # HU-15
         return ReporteService._detalle(r, usuario)
 
     @staticmethod
@@ -617,6 +623,7 @@ class ReporteService:
         texto = f"Tipo: {anterior_tipo} → {nuevo_tipo}. {motivo}"[:300]
         ReporteService._registrar(r, usuario, "reclasificar", r.estado, r.estado, texto)
         db.session.commit()
+        NotificacionService.reclasificado(r, usuario, anterior_tipo)  # HU-15
         return ReporteService._detalle(r, usuario)
 
     @staticmethod
