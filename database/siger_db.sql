@@ -67,6 +67,17 @@ CREATE TABLE IF NOT EXISTS `password_resets` (
   CONSTRAINT `fk_pr_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Tabla reporte_apoyo
+CREATE TABLE IF NOT EXISTS `reporte_apoyo` (
+  `reporte_id` int NOT NULL,
+  `organismo_id` int NOT NULL,
+  `fecha` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`reporte_id`,`organismo_id`),
+  KEY `fk_apoyo_organismo` (`organismo_id`),
+  CONSTRAINT `fk_apoyo_organismo` FOREIGN KEY (`organismo_id`) REFERENCES `organismos` (`id`),
+  CONSTRAINT `fk_apoyo_reporte` FOREIGN KEY (`reporte_id`) REFERENCES `reportes` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 -- Tabla reporte_historial
 CREATE TABLE IF NOT EXISTS `reporte_historial` (
   `id` int NOT NULL AUTO_INCREMENT,
