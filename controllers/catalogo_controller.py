@@ -40,7 +40,7 @@ def listar_municipios():
 @municipio_bp.route("", methods=["POST"])
 @admin_required
 def crear_municipio():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     dto = MunicipioCreateDTO(codigo=data.get("codigo"), nombre=data.get("nombre"))
     try:
         municipio = MunicipioService.create_municipio(dto)
@@ -62,7 +62,7 @@ def obtener_municipio(municipio_id):
 @municipio_bp.route("/<int:municipio_id>", methods=["PUT"])
 @admin_required
 def actualizar_municipio(municipio_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     dto = MunicipioUpdateDTO(codigo=data.get("codigo"), nombre=data.get("nombre"))
     try:
         municipio = MunicipioService.update_municipio(municipio_id, dto)
@@ -74,7 +74,7 @@ def actualizar_municipio(municipio_id):
 @municipio_bp.route("/<int:municipio_id>/estado", methods=["PATCH"])
 @admin_required
 def cambiar_estado_municipio(municipio_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     activo = data.get("activo")
     if not isinstance(activo, bool):
         return jsonify({"error": "El campo 'activo' debe ser true o false"}), 400
@@ -100,7 +100,7 @@ def listar_organismos():
 @organismo_bp.route("", methods=["POST"])
 @admin_required
 def crear_organismo():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     dto = OrganismoCreateDTO(
         codigo=data.get("codigo"),
         nombre=data.get("nombre"),
@@ -127,7 +127,7 @@ def obtener_organismo(organismo_id):
 @organismo_bp.route("/<int:organismo_id>", methods=["PUT"])
 @admin_required
 def actualizar_organismo(organismo_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     dto = OrganismoUpdateDTO(codigo=data.get("codigo"), nombre=data.get("nombre"), tipo=data.get("tipo"))
     try:
         organismo = OrganismoService.update_organismo(organismo_id, dto)
@@ -139,7 +139,7 @@ def actualizar_organismo(organismo_id):
 @organismo_bp.route("/<int:organismo_id>/estado", methods=["PATCH"])
 @admin_required
 def cambiar_estado_organismo(organismo_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     activo = data.get("activo")
     if not isinstance(activo, bool):
         return jsonify({"error": "El campo 'activo' debe ser true o false"}), 400
@@ -153,7 +153,7 @@ def cambiar_estado_organismo(organismo_id):
 @organismo_bp.route("/<int:organismo_id>/municipios", methods=["PUT"])
 @admin_required
 def asociar_municipios(organismo_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     ids_municipios = data.get("municipios", [])
     if not isinstance(ids_municipios, list):
         return jsonify({"error": "El campo 'municipios' debe ser una lista de ids"}), 400

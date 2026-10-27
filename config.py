@@ -2,6 +2,7 @@ import os
 from datetime import timedelta
 
 from sqlalchemy.engine import URL
+from sqlalchemy.pool import NullPool
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -47,18 +48,11 @@ class Config:
     SQLALCHEMY_DATABASE_URI = _construir_uri_db()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # Filess.io (plan gratis) limita las conexiones simultaneas y las cierra
-    # cuando estan inactivas. Con esto el pool es pequeño y se "revive" solo.
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        "pool_pre_ping": True,   # prueba la conexion antes de usarla
-        "pool_recycle": 280,     # renueva conexiones viejas (segundos)
-    }
+    # Filess.io (plan gratis) limita las conexiones simultaneas y cierra las inactivas:
+    # con MySQL se abre y cierra la conexion en cada peticion.
+    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 280}
     if str(SQLALCHEMY_DATABASE_URI).startswith("mysql"):
-        from sqlalchemy.pool import NullPool
-        SQLALCHEMY_ENGINE_OPTIONS = {
-            "poolclass": NullPool,   # abre y cierra la conexión en cada petición
-            "connect_args": {"connect_timeout": 15},
-        }
+        SQLALCHEMY_ENGINE_OPTIONS = {"poolclass": NullPool, "connect_args": {"connect_timeout": 15}}
 
     # --- Recuperacion de contrasena (correo por Gmail) ---
     # Direccion publica del FRONTEND: es la que se pone en el enlace del correo.

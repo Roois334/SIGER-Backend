@@ -1,4 +1,4 @@
-﻿from dotenv import load_dotenv
+from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, jsonify
@@ -8,6 +8,11 @@ from config import Config
 from extensions import db
 from controllers.auth_controller import auth_bp
 from controllers.user_controller import user_bp
+from controllers.catalogo_controller import municipio_bp, organismo_bp
+from controllers.reporte_controller import reporte_bp
+from controllers.notificacion_controller import notificacion_bp
+from controllers.publico_controller import publico_bp
+from controllers.estadistica_controller import estadistica_bp
 import models.password_reset  # noqa: F401  (registra la tabla password_resets)
 import models.notificacion  # noqa: F401  (registra la tabla notificaciones)
 
@@ -19,26 +24,10 @@ CORS(app, origins=[Config.FRONTEND_URL, "http://localhost:5001", "http://127.0.0
 # Por eso aqui NO se hace db.create_all(). Si cambias un modelo, actualiza la base y
 # vuelve a exportar el esquema con database/exportar_esquema.py.
 db.init_app(app)
-jwt = JWTManager(app)
-app.register_blueprint(auth_bp)
-app.register_blueprint(user_bp)
-
-from controllers.catalogo_controller import municipio_bp, organismo_bp
-# ... después de app.register_blueprint(user_bp):
-app.register_blueprint(municipio_bp)
-app.register_blueprint(organismo_bp)
-
-from controllers.reporte_controller import reporte_bp
-app.register_blueprint(reporte_bp)
-
-from controllers.notificacion_controller import notificacion_bp
-app.register_blueprint(notificacion_bp)
-
-from controllers.publico_controller import publico_bp
-app.register_blueprint(publico_bp)
-
-from controllers.estadistica_controller import estadistica_bp
-app.register_blueprint(estadistica_bp)
+JWTManager(app)
+for blueprint in (auth_bp, user_bp, municipio_bp, organismo_bp, reporte_bp,
+                  notificacion_bp, publico_bp, estadistica_bp):
+    app.register_blueprint(blueprint)
 
 @app.errorhandler(413)
 def archivo_demasiado_grande(e):

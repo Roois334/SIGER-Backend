@@ -1,8 +1,9 @@
-﻿from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify
 from dtos.user_dto import UserRegisterDTO, UserLoginDTO
 from services.auth_service import AuthService
 from services.recuperacion_service import RecuperacionService
 from utilities.limitador import LimitadorIntentos
+from utilities.permisos import CIUDADANO
 
 # 5 intentos fallidos por correo cada 15 minutos
 _limitador_login = LimitadorIntentos(maximo=5, ventana_seg=900)
@@ -12,14 +13,14 @@ auth_bp = Blueprint("auth_bp", __name__, url_prefix="/api/auth")
 
 @auth_bp.route("/register", methods=["POST"])
 def register():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     try:
         dto = UserRegisterDTO(
             nombre=data.get("nombre"),
             apellido=data.get("apellido"),
             email=data.get("email"),
             password=data.get("password"),
-            rol="ciudadano",  # el registro publico SIEMPRE crea ciudadanos
+            rol=CIUDADANO,  # el registro publico SIEMPRE crea ciudadanos
             municipio=data.get("municipio"),
             tipo_documento=data.get("tipo_documento"),
             documento=data.get("documento"),
@@ -47,7 +48,6 @@ def login():
     except ValueError as e:
         _limitador_login.registrar_fallo(clave)
         return jsonify({"error": str(e)}), 401
-
 
 
 @auth_bp.route("/olvide-password", methods=["POST"])

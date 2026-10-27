@@ -26,7 +26,7 @@ class MunicipioService:
 
     @staticmethod
     def get_municipio(municipio_id):
-        m = Municipio.query.get(municipio_id)
+        m = db.session.get(Municipio, municipio_id)
         if not m:
             raise ValueError("Municipio no encontrado")
         return MunicipioService._to_dto(m).to_dict()
@@ -49,7 +49,7 @@ class MunicipioService:
 
     @staticmethod
     def update_municipio(municipio_id, dto):
-        m = Municipio.query.get(municipio_id)
+        m = db.session.get(Municipio, municipio_id)
         if not m:
             raise ValueError("Municipio no encontrado")
 
@@ -74,7 +74,7 @@ class MunicipioService:
 
     @staticmethod
     def set_active(municipio_id, activo):
-        m = Municipio.query.get(municipio_id)
+        m = db.session.get(Municipio, municipio_id)
         if not m:
             raise ValueError("Municipio no encontrado")
         m.activo = activo
@@ -119,7 +119,7 @@ class OrganismoService:
 
     @staticmethod
     def get_organismo(organismo_id):
-        o = Organismo.query.get(organismo_id)
+        o = db.session.get(Organismo, organismo_id)
         if not o:
             raise ValueError("Organismo no encontrado")
         return OrganismoService._to_dto(o).to_dict()
@@ -143,7 +143,7 @@ class OrganismoService:
 
     @staticmethod
     def update_organismo(organismo_id, dto):
-        o = Organismo.query.get(organismo_id)
+        o = db.session.get(Organismo, organismo_id)
         if not o:
             raise ValueError("Organismo no encontrado")
 
@@ -171,7 +171,7 @@ class OrganismoService:
 
     @staticmethod
     def set_active(organismo_id, activo):
-        o = Organismo.query.get(organismo_id)
+        o = db.session.get(Organismo, organismo_id)
         if not o:
             raise ValueError("Organismo no encontrado")
         o.activo = activo
@@ -180,7 +180,7 @@ class OrganismoService:
 
     @staticmethod
     def set_municipios(organismo_id, ids_municipios):
-        o = Organismo.query.get(organismo_id)
+        o = db.session.get(Organismo, organismo_id)
         if not o:
             raise ValueError("Organismo no encontrado")
         o.municipios = OrganismoService._resolver_municipios(ids_municipios)

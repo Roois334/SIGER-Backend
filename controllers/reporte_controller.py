@@ -8,6 +8,11 @@ from services.reporte_service import ReporteService, PermisoError, NoEncontradoE
 reporte_bp = Blueprint("reporte_bp", __name__, url_prefix="/api/reportes")
 
 
+def _error(e):
+    codigo = 403 if isinstance(e, PermisoError) else 404 if isinstance(e, NoEncontradoError) else 400
+    return jsonify({"error": str(e)}), codigo
+
+
 @reporte_bp.route("/configuracion", methods=["GET"])
 @login_activo_required
 def configuracion_reportes():
@@ -79,22 +84,6 @@ def listar_reportes_gestion():
         return jsonify({"error": str(e)}), 400
 
 
-@reporte_bp.route("/estadisticas", methods=["GET"])
-@permiso_required("emergencias.consultar")
-def estadisticas_reportes():
-    """Indicadores para estadisticas y dashboard (respetan el alcance del usuario)."""
-    try:
-        datos = ReporteService.estadisticas(
-            g.usuario,
-            desde=request.args.get("desde"), hasta=request.args.get("hasta"),
-            municipio_id=request.args.get("municipio_id", type=int),
-            tipo=request.args.get("tipo"), prioridad=request.args.get("prioridad"),
-        )
-        return jsonify(datos), 200
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-
-
 @reporte_bp.route("/publico", methods=["GET"])
 @login_activo_required
 def listar_reportes_publicos():
@@ -110,12 +99,7 @@ def obtener_reporte(reporte_id):
         reporte = ReporteService.get_reporte(reporte_id, usuario=g.usuario)
         return jsonify({"reporte": reporte}), 200
     except ValueError as e:
-        return jsonify({"error": str(e)}), 404
-
-
-def _error(e):
-    codigo = 403 if isinstance(e, PermisoError) else 404 if isinstance(e, NoEncontradoError) else 400
-    return jsonify({"error": str(e)}), codigo
+        return _error(e)
 
 
 @reporte_bp.route("/<int:reporte_id>/asignar", methods=["POST"])
@@ -188,7 +172,7 @@ def obtener_evidencia(evidencia_id):
     try:
         evidencia = ReporteService.get_evidencia_autorizada(evidencia_id, g.usuario)
     except ValueError as e:
-        return jsonify({"error": str(e)}), 403
+        return _error(e)
 
     # Se usa solo el nombre del archivo (nunca una ruta del cliente/BD) y se busca
     # primero en la carpeta privada actual y luego en la carpeta antigua (static),

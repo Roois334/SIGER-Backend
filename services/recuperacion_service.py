@@ -204,7 +204,7 @@ class RecuperacionService:
         pr = RecuperacionService._buscar_valido(token)
         if not pr:
             raise ValueError("El enlace no es valido o ya vencio")
-        user = User.query.get(pr.usuario_id)
+        user = db.session.get(User, pr.usuario_id)
         if not user or not user.activo:
             raise ValueError("El enlace no es valido o ya vencio")
         return {"email": _enmascarar(user.email), "minutos": max(1, int((pr.expira - _ahora()).total_seconds() // 60))}
@@ -214,7 +214,7 @@ class RecuperacionService:
         pr = RecuperacionService._buscar_valido(token)
         if not pr:
             raise ValueError("El enlace no es valido o ya vencio. Pide uno nuevo")
-        user = User.query.get(pr.usuario_id)
+        user = db.session.get(User, pr.usuario_id)
         if not user or not user.activo:
             raise ValueError("El enlace no es valido o ya vencio. Pide uno nuevo")
         validar_password(nueva)

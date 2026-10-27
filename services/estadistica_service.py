@@ -10,31 +10,22 @@ tiempo y tiempos promedio de respuesta y de atencion.
   tiempo de respuesta = desde que se reporta hasta que el gestor la asigna por primera vez
   tiempo de atencion  = desde que se reporta hasta que el organismo la marca como resuelta
 """
-from datetime import datetime, timedelta, date
+
+from datetime import timedelta
 
 from sqlalchemy.orm import joinedload
 
-from extensions import db
 from models.reporte import Reporte, ReporteHistorial
-from models.catalogos import Municipio
 from utilities.permisos import ADMINISTRADOR, GESTOR_MUNICIPAL
+from utilities.prioridad import PRIORIDADES
+from utilities.fechas import ahora, rango_fechas, filtrar_por_fecha
 
 ACTIVAS = ("pendiente", "asignado", "en_atencion")
 RESUELTAS = ("resuelto", "cerrado")
-ORDEN_PRIORIDAD = ["critica", "alta", "media", "baja"]
+ORDEN_PRIORIDAD = list(reversed(PRIORIDADES))
 ORDEN_ESTADO = ["pendiente", "asignado", "en_atencion", "resuelto", "cerrado", "descartado"]
 MAX_DIAS_SERIE_DIARIA = 92
 MAX_RANGO_DIAS = 3660
-
-
-def _fecha(texto, nombre):
-    texto = (texto or "").strip()
-    if not texto:
-        return None
-    try:
-        return datetime.strptime(texto, "%Y-%m-%d").date()
-    except ValueError:
-        raise ValueError(f"La fecha '{nombre}' no es valida")
 
 
 def _pct(parte, total):
@@ -58,9 +49,7 @@ class EstadisticaService:
         if rol not in (GESTOR_MUNICIPAL, ADMINISTRADOR):
             raise PermissionError("No tienes permisos para consultar estadisticas")
 
-        f_desde, f_hasta = _fecha(desde, "desde"), _fecha(hasta, "hasta")
-        if f_desde and f_hasta and f_desde > f_hasta:
-            raise ValueError("La fecha 'desde' no puede ser posterior a la fecha 'hasta'")
+        f_desde, f_hasta = rango_fechas(desde, hasta)
         if f_desde and f_hasta and (f_hasta - f_desde).days > MAX_RANGO_DIAS:
             raise ValueError("El periodo no puede superar 10 anos")
         if prioridad and prioridad not in ORDEN_PRIORIDAD:
@@ -87,10 +76,7 @@ class EstadisticaService:
             q = q.filter(Reporte.estado.in_(RESUELTAS))
         elif estado:
             q = q.filter(Reporte.estado == estado)
-        if f_desde:
-            q = q.filter(Reporte.fecha_hora >= datetime.combine(f_desde, datetime.min.time()))
-        if f_hasta:
-            q = q.filter(Reporte.fecha_hora < datetime.combine(f_hasta + timedelta(days=1), datetime.min.time()))
+        q = filtrar_por_fecha(q, Reporte.fecha_hora, f_desde, f_hasta)
         reportes = q.all()
         total = len(reportes)
 
@@ -142,7 +128,7 @@ class EstadisticaService:
             "filtros": {"desde": desde or "", "hasta": hasta or "", "municipio_id": municipio_id or "",
                         "tipo": tipo or "", "prioridad": prioridad or "", "estado": estado or ""},
             "alcance": "municipio" if rol == GESTOR_MUNICIPAL else "region",
-            "generado": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "generado": ahora().strftime("%Y-%m-%d %H:%M"),
             "kpis": {
                 "total": total,
                 "activas": activas,

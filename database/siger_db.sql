@@ -1,5 +1,5 @@
 -- SIGER: esquema de la base de datos y datos de catalogo
--- Generado el 2026-10-25 con database/exportar_esquema.py
+-- Generado el 2026-10-27 con database/exportar_esquema.py
 -- No incluye usuarios, reportes ni contrasenas.
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -28,6 +28,24 @@ CREATE TABLE IF NOT EXISTS `municipios` (
   UNIQUE KEY `codigo` (`codigo`),
   UNIQUE KEY `nombre` (`nombre`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Tabla notificaciones
+CREATE TABLE IF NOT EXISTS `notificaciones` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `usuario_id` int NOT NULL,
+  `reporte_id` int DEFAULT NULL,
+  `tipo` varchar(30) NOT NULL,
+  `titulo` varchar(150) NOT NULL,
+  `mensaje` varchar(300) NOT NULL,
+  `leida` tinyint(1) NOT NULL DEFAULT '0',
+  `fecha_creacion` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fk_notif_reporte` (`reporte_id`),
+  KEY `idx_notif_usuario_leida` (`usuario_id`,`leida`),
+  KEY `idx_notif_usuario_id` (`usuario_id`,`id`),
+  CONSTRAINT `fk_notif_reporte` FOREIGN KEY (`reporte_id`) REFERENCES `reportes` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_notif_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Tabla organismo_municipio
 CREATE TABLE IF NOT EXISTS `organismo_municipio` (

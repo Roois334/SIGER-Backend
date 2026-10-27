@@ -1,20 +1,26 @@
+import os
+import uuid
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
+from werkzeug.security import generate_password_hash, check_password_hash
+
 from extensions import db
 from models.user import User
 from models.catalogos import Rol, Municipio, Organismo
 from dtos.user_dto import UserAdminDTO
-from utilities.validaciones import validar_password
+from utilities.validaciones import validar_email, validar_password
 from utilities.validaciones_persona import validar_documento, validar_telefono, validar_nombre
-import os
-import uuid
-from werkzeug.utils import secure_filename
-from werkzeug.security import generate_password_hash, check_password_hash
-import re
+from utilities.permisos import ROLES_VALIDOS, CIUDADANO, ORGANISMO_ATENCION, tiene_alcance_municipal
 
-from utilities.permisos import ROLES_VALIDOS, ORGANISMO_ATENCION, tiene_alcance_municipal
-EXTENSIONES_FOTO_VALIDAS = {"jpg", "jpeg", "png", "webp"}
 MAX_FOTO_BYTES = 5 * 1024 * 1024  # 5 MB
+# Extension permitida -> como empiezan los bytes de ese formato
+FIRMAS_FOTO = {
+    "jpg": lambda c: c.startswith(b"\xff\xd8\xff"),
+    "jpeg": lambda c: c.startswith(b"\xff\xd8\xff"),
+    "png": lambda c: c.startswith(b"\x89PNG\r\n\x1a\n"),
+    "webp": lambda c: c[:4] == b"RIFF" and c[8:12] == b"WEBP",
+}
 
 
 class UserService:
@@ -59,14 +65,14 @@ class UserService:
 
     @staticmethod
     def get_user(user_id):
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             raise ValueError("Usuario no encontrado")
         return UserService._to_admin_dto(user).to_dict()
 
     @staticmethod
     def update_user(user_id, dto, admin_id=None):
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             raise ValueError("Usuario no encontrado")
 
@@ -75,7 +81,7 @@ class UserService:
             raise ValueError("No puedes cambiar tu propio rol")
 
         if dto.email:
-            email = dto.email.strip().lower()
+            email = validar_email(dto.email)
             if email != user.email and User.query.filter(User.email == email, User.id != user_id).first():
                 raise ValueError("Ya existe una cuenta con ese correo")
             user.email = email
@@ -101,7 +107,7 @@ class UserService:
                 user.organismo_id = None
             else:
                 try:
-                    organismo = Organismo.query.get(int(dto.organismo_id))
+                    organismo = db.session.get(Organismo, int(dto.organismo_id))
                 except (TypeError, ValueError):
                     organismo = None
                 if not organismo:
@@ -130,7 +136,7 @@ class UserService:
             if not user.organismo_id:
                 db.session.rollback()
                 raise ValueError("Los usuarios de organismo de atencion deben tener un organismo asignado")
-            organismo = Organismo.query.get(user.organismo_id)
+            organismo = db.session.get(Organismo, user.organismo_id)
             if organismo and user.municipio_id not in [m.id for m in organismo.municipios]:
                 db.session.rollback()
                 raise ValueError("Ese organismo no opera en el municipio asignado al usuario")
@@ -143,7 +149,7 @@ class UserService:
         if str(user_id) == str(admin_id) and not activo:
             raise ValueError("No puedes desactivar tu propia cuenta")
 
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             raise ValueError("Usuario no encontrado")
 
@@ -157,7 +163,7 @@ class UserService:
     def update_me(user_id, nombre, apellido, municipio=None,
                   tipo_documento=None, documento=None, telefono=None):
         """El usuario edita sus datos personales. Solo el ciudadano puede cambiar su municipio."""
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             raise ValueError("Usuario no encontrado")
 
@@ -172,7 +178,7 @@ class UserService:
         user.nombre = nombre
         user.apellido = apellido
 
-        if municipio is not None and user.rol.nombre == "ciudadano":
+        if municipio is not None and user.rol.nombre == CIUDADANO:
             municipio = municipio.strip()
             if municipio:
                 m = Municipio.query.filter_by(nombre=municipio, activo=True).first()
@@ -210,15 +216,13 @@ class UserService:
     @staticmethod
     def change_email(user_id, nuevo_email, password):
         """Cambia el correo del propio usuario; exige la contrasena actual."""
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             raise ValueError("Usuario no encontrado")
         if not password or not check_password_hash(user.password_hash, password):
             raise ValueError("La contrasena actual no es correcta")
 
-        email = (nuevo_email or "").strip().lower()
-        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email) or len(email) > 120:
-            raise ValueError("Escribe un correo valido")
+        email = validar_email(nuevo_email)
         if email == user.email:
             raise ValueError("Ese ya es tu correo actual")
         if User.query.filter(User.email == email, User.id != user_id).first():
@@ -230,7 +234,7 @@ class UserService:
 
     @staticmethod
     def change_password(user_id, actual, nueva):
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             raise ValueError("Usuario no encontrado")
         if not actual or not check_password_hash(user.password_hash, actual):
@@ -244,49 +248,54 @@ class UserService:
         return UserService._to_admin_dto(user).to_dict()
 
     @staticmethod
+    def _borrar_foto(upload_folder, foto_url):
+        if foto_url:
+            ruta = os.path.join(upload_folder, os.path.basename(foto_url))
+            if os.path.exists(ruta):
+                os.remove(ruta)
+
+    @staticmethod
     def remove_foto(user_id, upload_folder):
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             raise ValueError("Usuario no encontrado")
         if user.foto_url:
-            ruta = os.path.join(upload_folder, os.path.basename(user.foto_url))
-            if os.path.exists(ruta):
-                os.remove(ruta)
+            UserService._borrar_foto(upload_folder, user.foto_url)
             user.foto_url = None
             db.session.commit()
         return UserService._to_admin_dto(user).to_dict()
 
     @staticmethod
-    def _extension_valida(nombre_archivo):
-        return "." in nombre_archivo and \
-            nombre_archivo.rsplit(".", 1)[1].lower() in EXTENSIONES_FOTO_VALIDAS
-
-    @staticmethod
     def update_foto(user_id, archivo, upload_folder):
         """Guarda la foto de perfil del propio usuario y devuelve su nueva URL."""
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             raise ValueError("Usuario no encontrado")
 
         if not archivo or not archivo.filename:
             raise ValueError("No se recibio ningun archivo")
 
-        if not UserService._extension_valida(archivo.filename):
+        extension = archivo.filename.rsplit(".", 1)[1].lower() if "." in archivo.filename else ""
+        if extension not in FIRMAS_FOTO:
             raise ValueError("Formato de imagen no permitido (usa jpg, png o webp)")
 
+        archivo.stream.seek(0, os.SEEK_END)
+        tamano = archivo.stream.tell()
+        archivo.stream.seek(0)
+        if tamano == 0 or tamano > MAX_FOTO_BYTES:
+            raise ValueError(f"La imagen esta vacia o supera {MAX_FOTO_BYTES // (1024 * 1024)} MB")
+        cabecera = archivo.stream.read(16)
+        archivo.stream.seek(0)
+        if not FIRMAS_FOTO[extension](cabecera):
+            raise ValueError("El archivo esta danado o no es una imagen valida")
+
+        # Primero se guarda la nueva; la anterior se borra solo si todo salio bien
         os.makedirs(upload_folder, exist_ok=True)
-
-        # Borra la foto anterior si existia, para no acumular archivos huerfanos
-        if user.foto_url:
-            ruta_anterior = os.path.join(upload_folder, os.path.basename(user.foto_url))
-            if os.path.exists(ruta_anterior):
-                os.remove(ruta_anterior)
-
-        extension = archivo.filename.rsplit(".", 1)[1].lower()
         nombre_unico = f"usuario_{user.id}_{uuid.uuid4().hex[:8]}.{extension}"
-        ruta_absoluta = os.path.join(upload_folder, nombre_unico)
-        archivo.save(ruta_absoluta)
+        archivo.save(os.path.join(upload_folder, nombre_unico))
 
+        foto_anterior = user.foto_url
         user.foto_url = f"/static/uploads/perfiles/{nombre_unico}"
         db.session.commit()
+        UserService._borrar_foto(upload_folder, foto_anterior)
         return UserService._to_admin_dto(user).to_dict()
