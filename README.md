@@ -9,7 +9,7 @@ reportes de emergencia, asignación, seguimiento, mapa público, estadísticas y
 
 ## Tecnologías
 
-Python 3.12 · Flask 3 · Flask-JWT-Extended · Flask-SQLAlchemy / SQLAlchemy 2 · PyMySQL · Flask-CORS · python-dotenv · MySQL / MariaDB.
+Python 3.12 · Flask 3 · Flask-JWT-Extended · Flask-SQLAlchemy / SQLAlchemy 2 · psycopg2 · Flask-CORS · python-dotenv · PostgreSQL (Azure Database for PostgreSQL). También funciona con MySQL / MariaDB (PyMySQL).
 
 ## Estructura
 
@@ -44,15 +44,18 @@ pip install -r requirements.txt
 
 ### 2. Base de datos
 
-Crea una base **vacía** en MySQL/MariaDB (por ejemplo `siger_db`, con `utf8mb4`) e impórtale el esquema:
+La base del proyecto está en **Azure Database for PostgreSQL** (servidor `siger-pg-2716`, grupo de recursos
+`siger-rg`). Para montar una base **nueva** en PostgreSQL, créala vacía (por ejemplo `siger_db`) e impórtale el esquema:
 
 ```powershell
-mysql -u TU_USUARIO -p siger_db < database/siger_db.sql
+psql "host=TU_HOST user=TU_USUARIO dbname=siger_db sslmode=require" -f database/siger_db.sql
 ```
 
 El archivo `database/siger_db.sql` crea todas las tablas e inserta los datos de catálogo (roles, municipios,
-organismos y su relación). **No trae usuarios.** Si prefieres una herramienta gráfica (HeidiSQL, phpMyAdmin,
-MySQL Workbench), basta con ejecutar ese archivo sobre la base vacía.
+organismos y su relación). **No trae usuarios.** Con una herramienta gráfica (pgAdmin, DBeaver, Azure Data Studio)
+basta con ejecutar ese archivo sobre la base vacía. Se puede ejecutar varias veces sin duplicar nada.
+
+Para pasar datos de una base MySQL antigua a PostgreSQL: `python database/migrar_mysql_a_postgres.py URL_MYSQL URL_POSTGRES`.
 
 ### 3. Variables de entorno
 
@@ -65,10 +68,13 @@ copy .env.example .env
 | Variable | Obligatoria | Para qué sirve |
 |---|---|---|
 | `SECRET_KEY` | Sí | Clave larga y aleatoria. Sin ella el servidor no arranca (salvo en modo depuración). |
-| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Sí | Conexión a MySQL/MariaDB. |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Sí | Conexión a la base de datos. |
+| `DB_ENGINE` | No | `postgresql` (por defecto) o `mysql`. |
+| `DB_SSLMODE` | No | Cifrado de PostgreSQL (por defecto `require`, obligatorio en Azure). |
+| `DATA_DIR` | No | Carpeta para evidencias y fotos de perfil (en Azure: `/home/data`). |
 | `DATABASE_URL` | No | Alternativa a las `DB_*`: URL completa de SQLAlchemy. |
 | `JWT_SECRET_KEY` | No | Clave de los tokens (por defecto usa `SECRET_KEY`). |
-| `JWT_EXPIRES_HOURS` | No | Duración del token (por defecto 2 h). |
+| `JWT_EXPIRES_MINUTES` | No | Duración del token en minutos (por defecto 20). |
 | `FRONTEND_URL` | No | Dirección del frontend (CORS y enlace del correo de recuperación). |
 | `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_NOMBRE`, `MAIL_HOST`, `MAIL_PORT` | No | Envío de correos con Gmail. Sin ellos, el enlace de recuperación se imprime en la consola del backend. |
 | `FLASK_DEBUG` | No | `1` activa el modo depuración (solo en desarrollo). |
@@ -150,7 +156,7 @@ Todas las rutas (salvo registro, login y recuperación de contraseña) exigen `A
 
 ## Notas y limitaciones conocidas
 
-- La base del proyecto está en Filess.io (plan gratuito): no permite crear un usuario con permisos limitados, así que la app se conecta con el usuario dueño de la base. En un despliegue real conviene crear un usuario solo con `SELECT/INSERT/UPDATE/DELETE`.
+- La app se conecta con el usuario administrador del servidor PostgreSQL. En producción conviene crear un usuario solo con `SELECT/INSERT/UPDATE/DELETE`.
 - La app no ejecuta `db.create_all()`: la estructura sale de `database/siger_db.sql`. Si cambias un modelo, actualiza la base y vuelve a exportar el esquema.
-- Para regenerar el esquema desde una base existente: `python database/exportar_esquema.py` (lee el `.env`).
+- Para regenerar el esquema: `python database/exportar_esquema.py` (tablas desde los modelos y catálogos desde la base del `.env`).
 - No hay pruebas automáticas todavía; las funciones se probaron manualmente por rol.

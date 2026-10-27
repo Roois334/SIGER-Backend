@@ -60,7 +60,8 @@ class AuthService:
 
     @staticmethod
     def login(dto):
-        user = User.query.filter_by(email=dto.email, activo=True).first()
+        email = (dto.email or "").strip().lower()
+        user = User.query.filter_by(email=email, activo=True).first()
         if not user or not check_password_hash(user.password_hash, dto.password):
             raise ValueError("Correo o contrasena incorrectos")
 

@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config import Config
@@ -28,6 +28,12 @@ JWTManager(app)
 for blueprint in (auth_bp, user_bp, municipio_bp, organismo_bp, reporte_bp,
                   notificacion_bp, publico_bp, estadistica_bp):
     app.register_blueprint(blueprint)
+
+@app.route("/static/uploads/perfiles/<path:nombre>")
+def foto_perfil(nombre):
+    """Las fotos de perfil viven en UPLOAD_FOLDER_PERFILES (en Azure, fuera del codigo desplegado)."""
+    return send_from_directory(app.config["UPLOAD_FOLDER_PERFILES"], nombre)
+
 
 @app.errorhandler(413)
 def archivo_demasiado_grande(e):

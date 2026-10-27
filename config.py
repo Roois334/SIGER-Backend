@@ -7,9 +7,13 @@ from sqlalchemy.pool import NullPool
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
+# Motor de base de datos: "postgresql" (Azure) o "mysql" (MySQL/MariaDB local o Filess.io)
+DB_ENGINE = os.environ.get("DB_ENGINE", "postgresql").lower()
+
+
 def _construir_uri_db():
     """
-    Arma la URI de conexion a MySQL/MariaDB (local o Filess.io) desde el .env.
+    Arma la URI de conexion desde el .env.
     Usa URL.create para que contrasenas con caracteres raros (@ : / # %)
     no rompan la conexion.
     """
@@ -18,14 +22,20 @@ def _construir_uri_db():
     if url_completa:
         return url_completa
 
+    if DB_ENGINE == "mysql":
+        driver, puerto, query = "mysql+pymysql", "3306", {"charset": "utf8mb4"}
+    else:
+        # Azure Database for PostgreSQL exige conexion cifrada
+        driver, puerto = "postgresql+psycopg2", "5432"
+        query = {"sslmode": os.environ.get("DB_SSLMODE", "require")}
     return URL.create(
-        drivername="mysql+pymysql",
+        drivername=driver,
         username=os.environ.get("DB_USER", "siger_app"),
         password=os.environ.get("DB_PASSWORD", "CAMBIA_ESTA_CLAVE"),
         host=os.environ.get("DB_HOST", "localhost"),
-        port=int(os.environ.get("DB_PORT", "3306")),
+        port=int(os.environ.get("DB_PORT", puerto)),
         database=os.environ.get("DB_NAME", "siger_db"),
-        query={"charset": "utf8mb4"},
+        query=query,
     )
 
 
@@ -37,21 +47,24 @@ class Config:
     if not SECRET_KEY:
         raise RuntimeError("Falta SECRET_KEY en el .env. Define una clave larga y aleatoria.")
 
-    # --- Evidencias de reportes ---
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads_privados", "evidencias")
+    # --- Archivos subidos ---
+    # En Azure se define DATA_DIR=/home/data: esa carpeta no se borra al volver a desplegar.
+    _DATA_DIR = os.environ.get("DATA_DIR")
+    # Evidencias de reportes
+    UPLOAD_FOLDER = os.path.join(_DATA_DIR, "evidencias") if _DATA_DIR else os.path.join(BASE_DIR, "uploads_privados", "evidencias")
     MAX_CONTENT_LENGTH = 56 * 1024 * 1024  # 5 evidencias x 10 MB + margen del formulario
+    # Fotos de perfil (se sirven en /static/uploads/perfiles/, ver app.py)
+    UPLOAD_FOLDER_PERFILES = os.path.join(_DATA_DIR, "perfiles") if _DATA_DIR else os.path.join(BASE_DIR, "static", "uploads", "perfiles")
 
-    # --- Fotos de perfil ---
-    UPLOAD_FOLDER_PERFILES = os.path.join(BASE_DIR, "static", "uploads", "perfiles")
-
-    # --- Conexion a la base de datos (Filess.io / MySQL) ---
+    # --- Conexion a la base de datos (Azure PostgreSQL o MySQL) ---
     SQLALCHEMY_DATABASE_URI = _construir_uri_db()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # Filess.io (plan gratis) limita las conexiones simultaneas y cierra las inactivas:
-    # con MySQL se abre y cierra la conexion en cada peticion.
-    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 280}
+    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 280, "pool_size": 5,
+                                 "connect_args": {"connect_timeout": 15}}
     if str(SQLALCHEMY_DATABASE_URI).startswith("mysql"):
+        # Filess.io (plan gratis) limita las conexiones simultaneas y cierra las inactivas:
+        # con MySQL se abre y cierra la conexion en cada peticion.
         SQLALCHEMY_ENGINE_OPTIONS = {"poolclass": NullPool, "connect_args": {"connect_timeout": 15}}
 
     # --- Recuperacion de contrasena (correo por Gmail) ---
