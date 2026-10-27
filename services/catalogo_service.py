@@ -1,3 +1,5 @@
+from sqlalchemy import func
+
 from extensions import db
 from models.catalogos import Municipio, Organismo
 from dtos.catalogo_dto import MunicipioDTO, OrganismoDTO
@@ -26,7 +28,7 @@ class MunicipioService:
 
     @staticmethod
     def get_municipio(municipio_id):
-        m = Municipio.query.get(municipio_id)
+        m = db.session.get(Municipio, municipio_id)
         if not m:
             raise ValueError("Municipio no encontrado")
         return MunicipioService._to_dto(m).to_dict()
@@ -37,9 +39,9 @@ class MunicipioService:
         nombre = (dto.nombre or "").strip()
         if not codigo or not nombre:
             raise ValueError("Codigo y nombre son obligatorios")
-        if Municipio.query.filter_by(codigo=codigo).first():
+        if Municipio.query.filter(func.lower(Municipio.codigo) == codigo.lower()).first():
             raise ValueError("Ya existe un municipio con ese codigo")
-        if Municipio.query.filter_by(nombre=nombre).first():
+        if Municipio.query.filter(func.lower(Municipio.nombre) == nombre.lower()).first():
             raise ValueError("Ya existe un municipio con ese nombre")
 
         m = Municipio(codigo=codigo, nombre=nombre, activo=True)
@@ -49,22 +51,22 @@ class MunicipioService:
 
     @staticmethod
     def update_municipio(municipio_id, dto):
-        m = Municipio.query.get(municipio_id)
+        m = db.session.get(Municipio, municipio_id)
         if not m:
             raise ValueError("Municipio no encontrado")
 
         if dto.codigo:
             codigo = dto.codigo.strip()
-            if codigo != m.codigo and Municipio.query.filter(
-                Municipio.codigo == codigo, Municipio.id != municipio_id
+            if codigo.lower() != m.codigo.lower() and Municipio.query.filter(
+                func.lower(Municipio.codigo) == codigo.lower(), Municipio.id != municipio_id
             ).first():
                 raise ValueError("Ya existe un municipio con ese codigo")
             m.codigo = codigo
 
         if dto.nombre:
             nombre = dto.nombre.strip()
-            if nombre != m.nombre and Municipio.query.filter(
-                Municipio.nombre == nombre, Municipio.id != municipio_id
+            if nombre.lower() != m.nombre.lower() and Municipio.query.filter(
+                func.lower(Municipio.nombre) == nombre.lower(), Municipio.id != municipio_id
             ).first():
                 raise ValueError("Ya existe un municipio con ese nombre")
             m.nombre = nombre
@@ -74,7 +76,7 @@ class MunicipioService:
 
     @staticmethod
     def set_active(municipio_id, activo):
-        m = Municipio.query.get(municipio_id)
+        m = db.session.get(Municipio, municipio_id)
         if not m:
             raise ValueError("Municipio no encontrado")
         m.activo = activo
@@ -119,7 +121,7 @@ class OrganismoService:
 
     @staticmethod
     def get_organismo(organismo_id):
-        o = Organismo.query.get(organismo_id)
+        o = db.session.get(Organismo, organismo_id)
         if not o:
             raise ValueError("Organismo no encontrado")
         return OrganismoService._to_dto(o).to_dict()
@@ -130,9 +132,9 @@ class OrganismoService:
         nombre = (dto.nombre or "").strip()
         if not codigo or not nombre:
             raise ValueError("Codigo y nombre son obligatorios")
-        if Organismo.query.filter_by(codigo=codigo).first():
+        if Organismo.query.filter(func.lower(Organismo.codigo) == codigo.lower()).first():
             raise ValueError("Ya existe un organismo con ese codigo")
-        if Organismo.query.filter_by(nombre=nombre).first():
+        if Organismo.query.filter(func.lower(Organismo.nombre) == nombre.lower()).first():
             raise ValueError("Ya existe un organismo con ese nombre")
 
         o = Organismo(codigo=codigo, nombre=nombre, tipo=(dto.tipo or "").strip() or None, activo=True)
@@ -143,22 +145,22 @@ class OrganismoService:
 
     @staticmethod
     def update_organismo(organismo_id, dto):
-        o = Organismo.query.get(organismo_id)
+        o = db.session.get(Organismo, organismo_id)
         if not o:
             raise ValueError("Organismo no encontrado")
 
         if dto.codigo:
             codigo = dto.codigo.strip()
-            if codigo != o.codigo and Organismo.query.filter(
-                Organismo.codigo == codigo, Organismo.id != organismo_id
+            if codigo.lower() != o.codigo.lower() and Organismo.query.filter(
+                func.lower(Organismo.codigo) == codigo.lower(), Organismo.id != organismo_id
             ).first():
                 raise ValueError("Ya existe un organismo con ese codigo")
             o.codigo = codigo
 
         if dto.nombre:
             nombre = dto.nombre.strip()
-            if nombre != o.nombre and Organismo.query.filter(
-                Organismo.nombre == nombre, Organismo.id != organismo_id
+            if nombre.lower() != o.nombre.lower() and Organismo.query.filter(
+                func.lower(Organismo.nombre) == nombre.lower(), Organismo.id != organismo_id
             ).first():
                 raise ValueError("Ya existe un organismo con ese nombre")
             o.nombre = nombre
@@ -171,7 +173,7 @@ class OrganismoService:
 
     @staticmethod
     def set_active(organismo_id, activo):
-        o = Organismo.query.get(organismo_id)
+        o = db.session.get(Organismo, organismo_id)
         if not o:
             raise ValueError("Organismo no encontrado")
         o.activo = activo
@@ -180,7 +182,7 @@ class OrganismoService:
 
     @staticmethod
     def set_municipios(organismo_id, ids_municipios):
-        o = Organismo.query.get(organismo_id)
+        o = db.session.get(Organismo, organismo_id)
         if not o:
             raise ValueError("Organismo no encontrado")
         o.municipios = OrganismoService._resolver_municipios(ids_municipios)

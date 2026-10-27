@@ -1,4 +1,4 @@
-﻿class UserRegisterDTO:
+class UserRegisterDTO:
     def __init__(self, nombre, apellido, email, password, rol="ciudadano", municipio=None,
                  tipo_documento=None, documento=None, telefono=None):
         self.tipo_documento = tipo_documento

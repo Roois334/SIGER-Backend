@@ -19,23 +19,20 @@ correo esta configurado y NOTIFICAR_CORREO=1 en el .env, el ciudadano recibe un 
 IMPORTANTE: generar una notificacion NUNCA debe romper la accion principal. Todo
 va dentro de try/except: si algo falla se registra en el log y la accion sigue.
 """
+import html
 import logging
-from datetime import datetime, timedelta, timezone
+import os
 
 from extensions import db
 from models.notificacion import Notificacion
 from models.user import User
 from models.catalogos import Rol
 from utilities.permisos import GESTOR_MUNICIPAL, ORGANISMO_ATENCION
+from utilities.fechas import ahora as _ahora
 
 log = logging.getLogger("siger.notificaciones")
 
-ZONA_COLOMBIA = timezone(timedelta(hours=-5))
 LIMITE_LISTA = 50
-
-
-def _ahora():
-    return datetime.now(ZONA_COLOMBIA).replace(tzinfo=None)
 
 
 def _tipo_bonito(tipo):
@@ -88,7 +85,7 @@ class NotificacionService:
         return creadas
 
     @staticmethod
-    def _emitir(reporte, evento, actor, destinos, titulo, mensaje):
+    def _emitir(reporte, evento, actor, destinos):
         """
         destinos: lista de (destinatarios, titulo, mensaje) para poder personalizar el texto
         segun quien lo recibe. Guarda y confirma; si algo falla, deshace SOLO esto y sigue.
@@ -108,7 +105,6 @@ class NotificacionService:
 
     @staticmethod
     def _enviar_correos(reporte, creadas):
-        import os
         if os.environ.get("NOTIFICAR_CORREO", "0") != "1":
             return
         try:
@@ -130,7 +126,8 @@ class NotificacionService:
     @staticmethod
     def _correo_html(nombre, reporte, n):
         f = "'Plus Jakarta Sans','Segoe UI',Helvetica,Arial,sans-serif"
-        esc = lambda s: (str(s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+        def esc(texto):
+            return html.escape(str(texto or ""))
         return f"""\
 <!doctype html><html lang="es" style="color-scheme:dark;"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark">
@@ -171,8 +168,7 @@ class NotificacionService:
             [(_gestores(reporte.municipio_id),
               f"Nueva emergencia: {tipo}",
               f"Se reportó {tipo.lower()} en {reporte.municipio.nombre if reporte.municipio else 'tu municipio'} "
-              f"({reporte.direccion}). Folio {reporte.folio}. Está pendiente de revisión.")],
-            None, None)
+              f"({reporte.direccion}). Folio {reporte.folio}. Está pendiente de revisión.")])
 
     @staticmethod
     def asignado(reporte, actor, organismo_nuevo, organismo_previo=None):
@@ -190,7 +186,7 @@ class NotificacionService:
                            f"Tu reporte {reporte.folio} ahora está a cargo de {organismo_nuevo.nombre}.")
             destinos.append((_organismo(organismo_previo.id, reporte.municipio_id), "Emergencia reasignada",
                              f"El reporte {reporte.folio} fue reasignado a {organismo_nuevo.nombre} y ya no está a cargo de tu organismo."))
-        NotificacionService._emitir(reporte, evento, actor, destinos, None, None)
+        NotificacionService._emitir(reporte, evento, actor, destinos)
 
     @staticmethod
     def cambio_estado(reporte, actor, accion, comentario=None, organismo=None):
@@ -222,7 +218,7 @@ class NotificacionService:
             destinos = [(ciu, "Tu reporte fue cerrado", f"El gestor confirmó el cierre de tu reporte {f} ({tipo}). Gracias por avisar.")]
         else:
             return
-        NotificacionService._emitir(reporte, evento, actor, destinos, None, None)
+        NotificacionService._emitir(reporte, evento, actor, destinos)
 
     @staticmethod
     def reclasificado(reporte, actor, tipo_anterior):
@@ -232,8 +228,7 @@ class NotificacionService:
         NotificacionService._emitir(
             reporte, "reclasificado", actor,
             [(_ciudadano(reporte), "Se actualizó el tipo de tu emergencia", texto),
-             (_organismo(reporte.organismo_id, reporte.municipio_id), "Se actualizó el tipo de una emergencia", texto)],
-            None, None)
+             (_organismo(reporte.organismo_id, reporte.municipio_id), "Se actualizó el tipo de una emergencia", texto)])
 
     # --------------------------------------------------------------- consulta (usuario)
 

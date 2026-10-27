@@ -1,4 +1,4 @@
-﻿from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token
 from sqlalchemy.exc import IntegrityError
 from extensions import db
@@ -7,13 +7,14 @@ from models.catalogos import Rol, Municipio
 from dtos.user_dto import UserResponseDTO
 from utilities.validaciones import validar_email, validar_password
 from utilities.validaciones_persona import validar_documento, validar_telefono, validar_nombre
+from utilities.permisos import CIUDADANO
 
 
 class AuthService:
     @staticmethod
     def register(dto):
         # El registro publico SIEMPRE crea ciudadanos, sin importar lo que llegue en dto.rol
-        rol = Rol.query.filter_by(nombre="ciudadano").first()
+        rol = Rol.query.filter_by(nombre=CIUDADANO).first()
         if not rol:
             raise ValueError("Rol invalido")
 
@@ -33,7 +34,7 @@ class AuthService:
 
         municipio = None
         if dto.municipio:
-            municipio = Municipio.query.filter_by(nombre=dto.municipio).first()
+            municipio = Municipio.query.filter_by(nombre=dto.municipio, activo=True).first()
             if not municipio:
                 raise ValueError("Municipio invalido")
 
@@ -59,7 +60,8 @@ class AuthService:
 
     @staticmethod
     def login(dto):
-        user = User.query.filter_by(email=dto.email, activo=True).first()
+        email = (dto.email or "").strip().lower()
+        user = User.query.filter_by(email=email, activo=True).first()
         if not user or not check_password_hash(user.password_hash, dto.password):
             raise ValueError("Correo o contrasena incorrectos")
 

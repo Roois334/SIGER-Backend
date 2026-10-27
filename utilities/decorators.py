@@ -1,6 +1,7 @@
 from functools import wraps
 from flask import jsonify, g
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+from extensions import db
 from models.user import User
 from utilities.permisos import tiene_permiso, ADMINISTRADOR
 
@@ -13,7 +14,7 @@ def _cargar_usuario_actual():
     Deja el usuario disponible en g.usuario.
     """
     verify_jwt_in_request()
-    user = User.query.get(int(get_jwt_identity()))
+    user = db.session.get(User, int(get_jwt_identity()))
     if not user or not user.activo:
         return None
     g.usuario = user

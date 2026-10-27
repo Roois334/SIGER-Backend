@@ -1,6 +1,6 @@
 """
-Exporta el ESQUEMA de la base de SIGER (tablas y triggers) y los datos de CATALOGO
-(roles, municipios, organismos y su relacion) a database/siger_db.sql.
+Exporta el ESQUEMA de la base de SIGER (tablas, a partir de los modelos) y los datos de
+CATALOGO (roles, municipios, organismos y su relacion) a database/siger_db.sql (PostgreSQL).
 NO exporta usuarios, reportes ni contrasenas.
 
 Uso (desde la carpeta BACKEND, con el .env configurado):
@@ -8,81 +8,64 @@ Uso (desde la carpeta BACKEND, con el .env configurado):
 """
 import datetime
 import os
-import re
 import sys
 
-import pymysql
-from dotenv import load_dotenv
-
 AQUI = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(AQUI))
+
+from dotenv import load_dotenv  # noqa: E402
+
 load_dotenv(os.path.join(AQUI, "..", ".env"))
+
+from sqlalchemy import select  # noqa: E402
+from sqlalchemy.dialects import postgresql  # noqa: E402
+from sqlalchemy.schema import CreateIndex, CreateTable  # noqa: E402
+
+from app import app  # noqa: E402
+from extensions import db  # noqa: E402
+
 SALIDA = os.path.join(AQUI, "siger_db.sql")
 TABLAS_CON_DATOS = ["roles", "municipios", "organismos", "organismo_municipio"]
 
 
+def _sql(sentencia):
+    return str(sentencia.compile(dialect=postgresql.dialect())).strip()
+
+
 def main():
-    try:
-        con = pymysql.connect(
-            host=os.environ["DB_HOST"], port=int(os.environ.get("DB_PORT", "3306")),
-            user=os.environ["DB_USER"], password=os.environ["DB_PASSWORD"],
-            database=os.environ["DB_NAME"], connect_timeout=15, charset="utf8mb4",
-        )
-    except KeyError as e:
-        sys.exit(f"Falta la variable {e} en el .env")
-    cur = con.cursor()
-
-    cur.execute("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE'")
-    tablas = sorted(f[0] for f in cur.fetchall())
-
+    tablas = db.metadata.sorted_tables
     out = [
-        "-- SIGER: esquema de la base de datos y datos de catalogo",
+        "-- SIGER: esquema de la base de datos (PostgreSQL) y datos de catalogo",
         f"-- Generado el {datetime.date.today().isoformat()} con database/exportar_esquema.py",
         "-- No incluye usuarios, reportes ni contrasenas.",
-        "SET NAMES utf8mb4;",
-        "SET FOREIGN_KEY_CHECKS = 0;",
         "",
     ]
     for t in tablas:
-        cur.execute(f"SHOW CREATE TABLE `{t}`")
-        ddl = cur.fetchone()[1]
-        ddl = re.sub(r" AUTO_INCREMENT=\d+", "", ddl)
-        ddl = ddl.replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS", 1)
-        out += [f"-- Tabla {t}", ddl + ";", ""]
-
-    for t in TABLAS_CON_DATOS:
-        if t not in tablas:
-            continue
-        cur.execute(f"SELECT * FROM `{t}`")
-        columnas = [d[0] for d in cur.description]
-        filas = cur.fetchall()
-        if not filas:
-            continue
-        out.append(f"-- Datos de {t} ({len(filas)} filas)")
-        cols = ", ".join(f"`{c}`" for c in columnas)
-        for fila in filas:
-            valores = ", ".join(con.escape(v) for v in fila)
-            out.append(f"INSERT IGNORE INTO `{t}` ({cols}) VALUES ({valores});")
+        ddl = _sql(CreateTable(t, if_not_exists=True))
+        out += [f"-- Tabla {t.name}", ddl + ";"]
+        out += [_sql(CreateIndex(i, if_not_exists=True)) + ";" for i in t.indexes]
         out.append("")
 
-    try:
-        cur.execute("SHOW TRIGGERS")
-        triggers = [r[0] for r in cur.fetchall()]
-        for nombre in triggers:
-            cur.execute(f"SHOW CREATE TRIGGER `{nombre}`")
-            sql = cur.fetchone()[2]
-            sql = re.sub(r"DEFINER=`[^`]*`@`[^`]*`\s*", "", sql)
-            out += [f"-- Trigger {nombre}", "DELIMITER $$", sql + "$$", "DELIMITER ;", ""]
-    except pymysql.err.MySQLError as e:
-        out.append(f"-- (No se pudieron leer los triggers: {e})")
+    with app.app_context():
+        for t in tablas:
+            if t.name not in TABLAS_CON_DATOS:
+                continue
+            filas = db.session.execute(select(t)).mappings().all()
+            if not filas:
+                continue
+            out.append(f"-- Datos de {t.name} ({len(filas)} filas)")
+            for fila in filas:
+                insert = postgresql.insert(t).values(**fila).on_conflict_do_nothing()
+                out.append(str(insert.compile(dialect=postgresql.dialect(),
+                                              compile_kwargs={"literal_binds": True})) + ";")
+            if "id" in t.c:
+                out.append(f"SELECT setval(pg_get_serial_sequence('{t.name}', 'id'), "
+                           f"COALESCE((SELECT MAX(id) FROM {t.name}), 0) + 1, false);")
+            out.append("")
 
-    out.append("SET FOREIGN_KEY_CHECKS = 1;")
     with open(SALIDA, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(out) + "\n")
-    con.close()
     print(f"OK: {len(tablas)} tablas exportadas -> {SALIDA}")
-    for t in TABLAS_CON_DATOS:
-        if t in tablas:
-            print("   con datos:", t)
 
 
 if __name__ == "__main__":

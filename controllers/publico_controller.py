@@ -6,17 +6,13 @@ NO se entrega folio, descripcion, direccion exacta, nombre del ciudadano, organi
 evidencias; y la coordenada se redondea (~110 m). Los reportes pendientes (aun sin
 revisar por el gestor) y los descartados no se publican.
 """
-from datetime import datetime, timedelta, timezone
-
 from flask import Blueprint, jsonify
 from sqlalchemy.orm import joinedload
 
 from models.reporte import Reporte
+from services.reporte_service import ESTADOS_PUBLICOS, PUBLICO_MAX
 
 publico_bp = Blueprint("publico_bp", __name__, url_prefix="/api/publico")
-
-# Estados que se muestran al publico: el gestor ya confirmo el incidente y sigue abierto
-ESTADOS_PUBLICOS = ("asignado", "en_atencion")
 
 
 @publico_bp.route("/mapa", methods=["GET"])
@@ -24,7 +20,7 @@ def mapa_publico():
     reportes = (Reporte.query.options(joinedload(Reporte.municipio))
                 .filter(Reporte.estado.in_(ESTADOS_PUBLICOS),
                         Reporte.latitud.isnot(None), Reporte.longitud.isnot(None))
-                .order_by(Reporte.fecha_hora.desc()).limit(300).all())
+                .order_by(Reporte.fecha_hora.desc()).limit(PUBLICO_MAX).all())
     datos = [{
         "id": r.id,
         "tipo": r.tipo,

@@ -1,5 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import get_jwt_identity
+from flask import Blueprint, request, jsonify, current_app, g
 from dtos.user_dto import UserUpdateDTO
 from services.user_service import UserService
 from utilities.decorators import admin_required, login_activo_required
@@ -11,7 +10,7 @@ user_bp = Blueprint("user_bp", __name__, url_prefix="/api/usuarios")
 @login_activo_required
 def obtener_mi_perfil():
     """Cualquier usuario autenticado puede consultar sus propios datos."""
-    user_id = int(get_jwt_identity())
+    user_id = g.usuario.id
     try:
         usuario = UserService.get_user(user_id)
         return jsonify({"usuario": usuario}), 200
@@ -25,7 +24,7 @@ def actualizar_mi_perfil():
     """Nombre, apellido y (solo ciudadanos) municipio del propio usuario."""
     data = request.get_json(silent=True) or {}
     try:
-        usuario = UserService.update_me(int(get_jwt_identity()), data.get("nombre"),
+        usuario = UserService.update_me(g.usuario.id, data.get("nombre"),
                                         data.get("apellido"), data.get("municipio"),
                                         tipo_documento=data.get("tipo_documento"),
                                         documento=data.get("documento"),
@@ -40,7 +39,7 @@ def actualizar_mi_perfil():
 def cambiar_mi_correo():
     data = request.get_json(silent=True) or {}
     try:
-        usuario = UserService.change_email(int(get_jwt_identity()), data.get("email"), data.get("password"))
+        usuario = UserService.change_email(g.usuario.id, data.get("email"), data.get("password"))
         return jsonify({"usuario": usuario}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -51,7 +50,7 @@ def cambiar_mi_correo():
 def cambiar_mi_password():
     data = request.get_json(silent=True) or {}
     try:
-        usuario = UserService.change_password(int(get_jwt_identity()), data.get("actual"), data.get("nueva"))
+        usuario = UserService.change_password(g.usuario.id, data.get("actual"), data.get("nueva"))
         return jsonify({"usuario": usuario}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -61,7 +60,7 @@ def cambiar_mi_password():
 @login_activo_required
 def quitar_mi_foto():
     try:
-        usuario = UserService.remove_foto(int(get_jwt_identity()),
+        usuario = UserService.remove_foto(g.usuario.id,
                                           upload_folder=current_app.config["UPLOAD_FOLDER_PERFILES"])
         return jsonify({"usuario": usuario}), 200
     except ValueError as e:
@@ -72,7 +71,7 @@ def quitar_mi_foto():
 @login_activo_required
 def subir_mi_foto():
     """Cualquier usuario autenticado puede cambiar su propia foto de perfil."""
-    user_id = int(get_jwt_identity())
+    user_id = g.usuario.id
     archivo = request.files.get("foto")
 
     try:
@@ -118,7 +117,7 @@ def obtener_usuario(user_id):
 @user_bp.route("/<int:user_id>", methods=["PUT"])
 @admin_required
 def actualizar_usuario(user_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     dto = UserUpdateDTO(
         nombre=data.get("nombre"),
         apellido=data.get("apellido"),
@@ -128,7 +127,7 @@ def actualizar_usuario(user_id):
         organismo_id=data.get("organismo_id"),
     )
     try:
-        usuario = UserService.update_user(user_id, dto, admin_id=get_jwt_identity())
+        usuario = UserService.update_user(user_id, dto, admin_id=g.usuario.id)
         return jsonify({"usuario": usuario}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
@@ -137,13 +136,13 @@ def actualizar_usuario(user_id):
 @user_bp.route("/<int:user_id>/estado", methods=["PATCH"])
 @admin_required
 def cambiar_estado(user_id):
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
     activo = data.get("activo")
     if not isinstance(activo, bool):
         return jsonify({"error": "El campo 'activo' debe ser true o false"}), 400
 
     try:
-        usuario = UserService.set_active(user_id, activo, get_jwt_identity())
+        usuario = UserService.set_active(user_id, activo, g.usuario.id)
         return jsonify({"usuario": usuario}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
