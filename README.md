@@ -160,3 +160,21 @@ Todas las rutas (salvo registro, login y recuperación de contraseña) exigen `A
 - La app no ejecuta `db.create_all()`: la estructura sale de `database/siger_db.sql`. Si cambias un modelo, actualiza la base y vuelve a exportar el esquema.
 - Para regenerar el esquema: `python database/exportar_esquema.py` (tablas desde los modelos y catálogos desde la base del `.env`).
 - No hay pruebas automáticas todavía; las funciones se probaron manualmente por rol.
+
+## Publicación en Azure
+
+La aplicación está publicada en Azure App Service (plan gratuito F1, grupo de recursos `siger-rg`):
+
+- Sitio: https://siger-frontend-2716.azurewebsites.net
+- API: https://siger-backend-2716.azurewebsites.net
+
+**Se publica sola**: cada vez que se sube algo a la rama `main`, GitHub Actions
+(`.github/workflows/publicar-azure.yml`) empaqueta el código y lo despliega en `siger-backend-2716`.
+El avance se ve en la pestaña **Actions** del repositorio. También se puede lanzar a mano desde ahí
+("Run workflow").
+
+- Trabajen en `dev` y pasen los cambios a `main` (pull request) solo cuando estén probados.
+- No usa contraseñas: Azure confía en GitHub mediante la identidad administrada `siger-github-deploy`,
+  que solo tiene permiso para publicar en las aplicaciones de SIGER.
+- Las claves (base de datos, correo, `SECRET_KEY`) **no** están en el repositorio: se configuran en
+  Azure, en la aplicación → *Configuración → Variables de entorno*.
