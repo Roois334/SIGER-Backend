@@ -6,7 +6,6 @@ instance/
 uploads_privados/
 static/uploads/perfiles/
 static/uploads/evidencias/
-.env
 .env.*
 !.env.example
 .vs/
