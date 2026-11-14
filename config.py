@@ -39,7 +39,7 @@ class Config:
     if not SECRET_KEY:
         raise RuntimeError("Falta SECRET_KEY en el .env. Define una clave larga y aleatoria.")
 
-    # --- Archivos subidos ---
+    # Archivos subidos
     # En Azure se define DATA_DIR=/home/data: esa carpeta no se borra al volver a desplegar.
     _DATA_DIR = os.environ.get("DATA_DIR")
     # Evidencias de reportes
@@ -48,18 +48,18 @@ class Config:
     # Fotos de perfil (se sirven en /static/uploads/perfiles/, ver app.py)
     UPLOAD_FOLDER_PERFILES = os.path.join(_DATA_DIR, "perfiles") if _DATA_DIR else os.path.join(BASE_DIR, "static", "uploads", "perfiles")
 
-    # --- Conexion a la base de datos (Azure PostgreSQL) ---
+    # Conexion a la base de datos (Azure PostgreSQL)
     SQLALCHEMY_DATABASE_URI = _construir_uri_db()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 280, "pool_size": 5,
                                  "connect_args": {"connect_timeout": 15}}
 
-    # --- Recuperacion de contrasena (correo por Gmail) ---
+    # Recuperacion de contrasena (correo por Gmail)
     # Direccion publica del FRONTEND: es la que se pone en el enlace del correo.
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://127.0.0.1:5001")
 
-    # --- JWT ---
+    # JWT
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", SECRET_KEY)
     # Duracion del token en MINUTOS (por defecto 20). Se cambia con JWT_EXPIRES_MINUTES en el .env.
     # Minimo 1. Nunca pongas 0: en esta libreria 0 significa "no vence nunca".

@@ -14,7 +14,7 @@ def _estado_arg():
     return estado if estado in ("activo", "inactivo") else None
 
 
-# ---------------- Municipios ----------------
+# Municipios
 
 @municipio_bp.route("/activos", methods=["GET"])
 @login_activo_required
@@ -85,7 +85,7 @@ def cambiar_estado_municipio(municipio_id):
         return jsonify({"error": str(e)}), 400
 
 
-# ---------------- Organismos ----------------
+# Organismos
 
 @organismo_bp.route("", methods=["GET"])
 @admin_required

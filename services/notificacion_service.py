@@ -40,7 +40,7 @@ def _tipo_bonito(tipo):
             "Emergencia medica": "Emergencia médica"}.get(tipo, tipo)
 
 
-# --------------------------------------------------------------------- destinatarios
+# destinatarios
 
 def _gestores(municipio_id):
     return (User.query.join(Rol, User.rol_id == Rol.id)
@@ -62,7 +62,7 @@ def _ciudadano(reporte):
     return [c] if c and c.activo else []
 
 
-# --------------------------------------------------------------------- nucleo
+# nucleo
 
 class NotificacionService:
 
@@ -101,7 +101,7 @@ class NotificacionService:
             log.error("No se pudo generar la notificacion '%s' del reporte %s: %s", evento, getattr(reporte, "id", "?"), e)
             print(f"[SIGER] ERROR generando notificacion '{evento}': {e}")
 
-    # --------------------------------------------------------------- correo (opcional)
+    # correo (opcional)
 
     @staticmethod
     def _enviar_correos(reporte, creadas):
@@ -158,7 +158,7 @@ class NotificacionService:
 <tr><td align="center" style="padding:24px 16px 0;font:12px/1.7 {f};color:#57708f;">Ingresa a SIGER para ver el detalle de tu reporte.</td></tr>
 </table></td></tr></table></body></html>"""
 
-    # --------------------------------------------------------------- eventos
+    # eventos
 
     @staticmethod
     def reporte_nuevo(reporte):
@@ -230,7 +230,7 @@ class NotificacionService:
             [(_ciudadano(reporte), "Se actualizó el tipo de tu emergencia", texto),
              (_organismo(reporte.organismo_id, reporte.municipio_id), "Se actualizó el tipo de una emergencia", texto)])
 
-    # --------------------------------------------------------------- consulta (usuario)
+    # consulta (usuario)
 
     @staticmethod
     def _dto(n):

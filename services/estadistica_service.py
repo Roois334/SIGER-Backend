@@ -80,7 +80,7 @@ class EstadisticaService:
         reportes = q.all()
         total = len(reportes)
 
-        # --- tiempos: primer movimiento "asignar" y primer "resolver" de cada reporte ---
+        # tiempos: primer movimiento "asignar" y primer "resolver" de cada reporte
         ids = [r.id for r in reportes]
         primeros = {"asignar": {}, "resolver": {}}
         if ids:
@@ -102,7 +102,7 @@ class EstadisticaService:
             if s and s >= r.fecha_hora:
                 aten.append((s - r.fecha_hora).total_seconds() / 60)
 
-        # --- conteos ---
+        # conteos
         c_tipo, c_mun, c_pri, c_est, c_org = {}, {}, {}, {}, {}
         activas = resueltas = descartadas = criticas_activas = afectados = heridos = 0
         for r in reportes:
