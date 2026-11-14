@@ -2,13 +2,8 @@ import os
 from datetime import timedelta
 
 from sqlalchemy.engine import URL
-from sqlalchemy.pool import NullPool
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-
-# Motor de base de datos: "postgresql" (Azure) o "mysql" (MySQL/MariaDB local o Filess.io)
-DB_ENGINE = os.environ.get("DB_ENGINE", "postgresql").lower()
 
 
 def _construir_uri_db():
@@ -22,12 +17,9 @@ def _construir_uri_db():
     if url_completa:
         return url_completa
 
-    if DB_ENGINE == "mysql":
-        driver, puerto, query = "mysql+pymysql", "3306", {"charset": "utf8mb4"}
-    else:
-        # Azure Database for PostgreSQL exige conexion cifrada
-        driver, puerto = "postgresql+psycopg2", "5432"
-        query = {"sslmode": os.environ.get("DB_SSLMODE", "require")}
+    # Azure Database for PostgreSQL exige conexion cifrada
+    driver, puerto = "postgresql+psycopg2", "5432"
+    query = {"sslmode": os.environ.get("DB_SSLMODE", "require")}
     return URL.create(
         drivername=driver,
         username=os.environ.get("DB_USER", "siger_app"),
@@ -56,16 +48,12 @@ class Config:
     # Fotos de perfil (se sirven en /static/uploads/perfiles/, ver app.py)
     UPLOAD_FOLDER_PERFILES = os.path.join(_DATA_DIR, "perfiles") if _DATA_DIR else os.path.join(BASE_DIR, "static", "uploads", "perfiles")
 
-    # --- Conexion a la base de datos (Azure PostgreSQL o MySQL) ---
+    # --- Conexion a la base de datos (Azure PostgreSQL) ---
     SQLALCHEMY_DATABASE_URI = _construir_uri_db()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 280, "pool_size": 5,
                                  "connect_args": {"connect_timeout": 15}}
-    if str(SQLALCHEMY_DATABASE_URI).startswith("mysql"):
-        # Filess.io (plan gratis) limita las conexiones simultaneas y cierra las inactivas:
-        # con MySQL se abre y cierra la conexion en cada peticion.
-        SQLALCHEMY_ENGINE_OPTIONS = {"poolclass": NullPool, "connect_args": {"connect_timeout": 15}}
 
     # --- Recuperacion de contrasena (correo por Gmail) ---
     # Direccion publica del FRONTEND: es la que se pone en el enlace del correo.

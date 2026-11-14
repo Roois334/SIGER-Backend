@@ -9,7 +9,7 @@ reportes de emergencia, asignación, seguimiento, mapa público, estadísticas y
 
 ## Tecnologías
 
-Python 3.12 · Flask 3 · Flask-JWT-Extended · Flask-SQLAlchemy / SQLAlchemy 2 · psycopg2 · Flask-CORS · python-dotenv · PostgreSQL (Azure Database for PostgreSQL). También funciona con MySQL / MariaDB (PyMySQL).
+Python 3.12 · Flask 3 · Flask-JWT-Extended · Flask-SQLAlchemy / SQLAlchemy 2 · psycopg2 · Flask-CORS · python-dotenv · PostgreSQL (Azure Database for PostgreSQL).
 
 ## Estructura
 
@@ -67,7 +67,6 @@ copy .env.example .env
 |---|---|---|
 | `SECRET_KEY` | Sí | Clave larga y aleatoria. Sin ella el servidor no arranca (salvo en modo depuración). |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Sí | Conexión a la base de datos. |
-| `DB_ENGINE` | No | `postgresql` (por defecto) o `mysql`. |
 | `DB_SSLMODE` | No | Cifrado de PostgreSQL (por defecto `require`, obligatorio en Azure). |
 | `DATA_DIR` | No | Carpeta para evidencias y fotos de perfil (en Azure: `/home/data`). |
 | `DATABASE_URL` | No | Alternativa a las `DB_*`: URL completa de SQLAlchemy. |
