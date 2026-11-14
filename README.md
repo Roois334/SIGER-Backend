@@ -4,6 +4,8 @@
 frontend de SIGER: usuarios, municipios, organismos de atención,
 reportes de emergencia, asignación, seguimiento, mapa público, estadísticas y recuperación de contraseña.
 
+> Planeación del proyecto: historias de usuario, sprints y responsables en [PLANNER.md](PLANNER.md).
+
 > El frontend y el backend son dos aplicaciones independientes. Primero se levanta el backend (puerto 5000)
 > y después el frontend (puerto 5001).
 
