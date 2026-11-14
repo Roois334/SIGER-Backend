@@ -55,8 +55,6 @@ El archivo `database/siger_db.sql` crea todas las tablas e inserta los datos de 
 organismos y su relación). **No trae usuarios.** Con una herramienta gráfica (pgAdmin, DBeaver, Azure Data Studio)
 basta con ejecutar ese archivo sobre la base vacía. Se puede ejecutar varias veces sin duplicar nada.
 
-Para pasar datos de una base MySQL antigua a PostgreSQL: `python database/migrar_mysql_a_postgres.py URL_MYSQL URL_POSTGRES`.
-
 ### 3. Variables de entorno
 
 Copia `.env.example` como `.env` y completa los valores:
