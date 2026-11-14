@@ -6,8 +6,10 @@ instance/
 uploads_privados/
 static/uploads/perfiles/
 static/uploads/evidencias/
+.env
 .env.*
 !.env.example
+~$*
 .vs/
 respaldo_*.sql
 esquema_siger.sql

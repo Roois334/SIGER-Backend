@@ -114,7 +114,7 @@ class ReporteService:
             "region": {"lat_min": LAT_MIN, "lat_max": LAT_MAX, "lon_min": LON_MIN, "lon_max": LON_MAX},
         }
 
-    # ------------------------------------------------------------------ archivos
+    # archivos
 
     @staticmethod
     def _extension(filename):
@@ -149,7 +149,7 @@ class ReporteService:
             return cabecera[4:8] == b"ftyp"
         return False
 
-    # ------------------------------------------------------------------ folio / dto
+    # folio / dto
 
     @staticmethod
     def _generar_folio():
@@ -188,7 +188,7 @@ class ReporteService:
             asignado_por=f"{r.asignado_por.nombre} {r.asignado_por.apellido}".strip() if r.asignado_por else None,
         )
 
-    # ------------------------------------------------------------------ crear
+    # crear
 
     @staticmethod
     def _validar_campos(dto):
@@ -269,7 +269,7 @@ class ReporteService:
         heridos = ReporteService._validar_heridos(dto, afectados)
         archivos_validos = ReporteService._validar_archivos(archivos)
 
-        # --- Creacion del reporte (folio unico; reintenta si dos envios chocan) ---
+        # Creacion del reporte (folio unico; reintenta si dos envios chocan)
         reporte = None
         for _ in range(5):
             reporte = Reporte(
@@ -298,7 +298,7 @@ class ReporteService:
         if reporte is None:
             raise ValueError("No se pudo generar el identificador del reporte. Intenta de nuevo")
 
-        # --- Carga de evidencias (opcional). Si algo falla, no queda nada a medias ---
+        # Carga de evidencias (opcional). Si algo falla, no queda nada a medias
         guardados = []
         if archivos_validos and upload_folder:
             try:
@@ -328,7 +328,7 @@ class ReporteService:
         NotificacionService.reporte_nuevo(reporte)  # HU-15: avisa al gestor del municipio
         return ReporteService._to_dto(reporte).to_dict()
 
-    # ------------------------------------------------------------------ consultas
+    # consultas
 
     @staticmethod
     def _puede_ver(reporte, usuario):
@@ -456,7 +456,7 @@ class ReporteService:
         r = ReporteService._reporte_accesible(reporte_id, usuario)
         return ReporteService._detalle(r, usuario)
 
-    # ------------------------------------------------------------------ asignacion y atencion
+    # asignacion y atencion
 
     @staticmethod
     def _comentario(texto, obligatorio=False):

@@ -157,7 +157,7 @@ class UserService:
         db.session.commit()
         return UserService._to_admin_dto(user).to_dict()
 
-    # ------------------------------------------------------------ perfil propio
+    # perfil propio
 
     @staticmethod
     def update_me(user_id, nombre, apellido, municipio=None,
