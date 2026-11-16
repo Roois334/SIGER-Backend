@@ -1,4 +1,3 @@
-"""Municipios y organismos (solo administrador, salvo el listado de municipios activos)."""
 from tests.conftest import cabeceras
 
 

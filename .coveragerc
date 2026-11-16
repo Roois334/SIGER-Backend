@@ -1,4 +1,3 @@
-# Cobertura del BACKEND. Se mide solo el codigo de la aplicacion (no las pruebas ni los scripts de mantenimiento).
 [run]
 branch = True
 relative_files = True

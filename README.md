@@ -4,8 +4,6 @@
 frontend de SIGER: usuarios, municipios, organismos de atención,
 reportes de emergencia, asignación, seguimiento, mapa público, estadísticas y recuperación de contraseña.
 
-> Planeación del proyecto: historias de usuario, sprints y responsables en [PLANNER.md](PLANNER.md).
-
 > El frontend y el backend son dos aplicaciones independientes. Primero se levanta el backend (puerto 5000)
 > y después el frontend (puerto 5001).
 
@@ -234,4 +232,4 @@ pip install -r requirements.txt -r requirements-dev.txt
 python -m pytest --cov --cov-config=.coveragerc --cov-report=term-missing
 ```
 
-Las pruebas usan SQLite en memoria y exigen un minimo de 70 % de cobertura. El CI (GitHub Actions) y SonarQube, y como se protege la contrasena en la red (HTTPS), estan en [CALIDAD_Y_SEGURIDAD.md](CALIDAD_Y_SEGURIDAD.md).
+Las pruebas usan SQLite en memoria y exigen un minimo de 70 % de cobertura. En GitHub Actions corren en cada cambio junto con SonarQube.

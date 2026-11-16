@@ -1,4 +1,3 @@
-"""Reportes de emergencia: creacion, consulta, asignacion, atencion, apoyos y evidencias."""
 import io
 import os
 
@@ -42,7 +41,7 @@ class TestCrear:
         assert len(rep["evidencias"]) == 2
         carpeta = app.config["UPLOAD_FOLDER"]
         assert len(os.listdir(carpeta)) == 2
-        assert all(".." not in n and "/" not in n for n in os.listdir(carpeta))  # nombre saneado
+        assert all(".." not in n and "/" not in n for n in os.listdir(carpeta))
 
     def test_folios_consecutivos(self, client, datos):
         u = datos.usuario()
@@ -133,7 +132,7 @@ class TestConsultas:
         d = client.get(f"/api/reportes/{r.id}", headers=cabeceras(gestor)).get_json()["reporte"]
         assert d["acciones"]["asignar"] and d["acciones"]["descartar"] and not d["acciones"]["iniciar"]
         nombres = [o["nombre"] for o in d["organismos_disponibles"]]
-        assert nombres[0] == "Bomberos" and "Defensa Civil" not in nombres  # sugerido primero; inactivo fuera
+        assert nombres[0] == "Bomberos" and "Defensa Civil" not in nombres
 
     def test_gestion_filtra_por_municipio_y_filtros(self, client, datos):
         c = datos.usuario()
@@ -144,8 +143,8 @@ class TestConsultas:
         datos.reporte(c, municipio=datos.madrid)
         h = cabeceras(gestor)
         lista = lambda q="", h=h: client.get("/api/reportes/gestion" + q, headers=h).get_json()["reportes"]
-        assert len(lista()) == 2  # el de Madrid no se ve
-        assert len(lista(f"?municipio_id={datos.madrid.id}")) == 2  # el gestor no puede salirse de su municipio
+        assert len(lista()) == 2
+        assert len(lista(f"?municipio_id={datos.madrid.id}")) == 2
         assert len(lista("?q=luna")) == 1 and len(lista("?tipo=Inundacion")) == 1
         assert len(lista("?estado=asignado")) == 1 and len(lista("?prioridad=media")) == 1
         assert len(lista("?desde=2000-01-01&hasta=2100-01-01")) == 2
@@ -167,7 +166,7 @@ class TestConsultas:
         propio = datos.reporte(c, estado="asignado", organismo_id=datos.bomberos.id)
         apoyo = datos.reporte(c, estado="asignado", organismo_id=datos.cruz_roja.id)
         apoyo.apoyos = [datos.bomberos]
-        datos.reporte(c, estado="asignado", organismo_id=datos.cruz_roja.id)  # no le corresponde
+        datos.reporte(c, estado="asignado", organismo_id=datos.cruz_roja.id)
         datos.db.session.commit()
         h = cabeceras(org)
         lista = client.get("/api/reportes/gestion", headers=h).get_json()["reportes"]
@@ -203,7 +202,7 @@ class TestAsignar:
         h = cabeceras(gestor)
         url = f"/api/reportes/{r.id}/asignar"
         client.post(url, headers=h, json={"organismo_id": datos.bomberos.id})
-        assert client.post(url, headers=h, json={"organismo_id": datos.bomberos.id}).status_code == 400  # sin cambios
+        assert client.post(url, headers=h, json={"organismo_id": datos.bomberos.id}).status_code == 400
         res = client.post(url, headers=h, json={"organismo_id": datos.cruz_roja.id})
         assert res.status_code == 200 and res.get_json()["reporte"]["historial"][-1]["accion"] == "reasignar"
         assert "Reasignado de Bomberos a Cruz Roja" in res.get_json()["reporte"]["historial"][-1]["comentario"]
@@ -217,14 +216,13 @@ class TestAsignar:
         post = lambda c: client.post(url, headers=h, json=c)
         assert post({}).status_code == 400
         assert post({"organismo_id": "x"}).status_code == 400
-        assert post({"organismo_id": datos.defensa.id}).status_code == 400  # inactivo
+        assert post({"organismo_id": datos.defensa.id}).status_code == 400
         assert post({"organismo_id": 9999}).status_code == 400
         assert post({"organismo_id": datos.bomberos.id, "prioridad": "enorme"}).status_code == 400
         assert post({"organismo_id": datos.bomberos.id, "riesgo_propagacion": "raro"}).status_code == 400
         assert post({"organismo_id": datos.bomberos.id, "vias_afectadas": "abc"}).status_code == 400
         assert post({"organismo_id": datos.bomberos.id, "vias_afectadas": "101"}).status_code == 400
         assert post({"organismo_id": datos.bomberos.id, "comentario": "x" * 301}).status_code == 400
-        # un organismo que no opera en el municipio del reporte
         assert client.post(f"/api/reportes/{datos.reporte(datos.usuario(), municipio=datos.madrid).id}/asignar",
                            headers=cabeceras(datos.usuario("administrador", municipio=None)),
                            json={"organismo_id": datos.bomberos.id}).status_code == 400
@@ -268,7 +266,7 @@ class TestCicloDeAtencion:
         gestor, org, _, r = self._asignado(datos)
         r.apoyos = [datos.cruz_roja]
         datos.db.session.commit()
-        assert self._estado(client, r, org, "devolver").status_code == 400  # motivo obligatorio
+        assert self._estado(client, r, org, "devolver").status_code == 400
         d = self._estado(client, r, org, "devolver", comentario="No tenemos unidades").get_json()["reporte"]
         assert d["estado"] == "pendiente" and d["organismo_id"] is None and d["apoyos"] == []
 
@@ -281,10 +279,10 @@ class TestCicloDeAtencion:
     def test_acciones_no_disponibles(self, client, datos):
         gestor, org, ciudadano, r = self._asignado(datos)
         assert self._estado(client, r, org, "inventada").status_code == 400
-        assert self._estado(client, r, org, "resolver").status_code == 400  # aun no inicia
+        assert self._estado(client, r, org, "resolver").status_code == 400
         assert self._estado(client, r, ciudadano, "iniciar").status_code == 400
         assert self._estado(client, r, datos.usuario("gestor_municipal", municipio="madrid"), "descartar").status_code == 403
-        assert self._estado(client, r, gestor, "iniciar").status_code == 400  # el gestor no atiende
+        assert self._estado(client, r, gestor, "iniciar").status_code == 400
 
     def test_el_ciudadano_no_ve_los_movimientos_internos(self, client, datos):
         gestor, org, ciudadano, r = self._asignado(datos)
@@ -317,13 +315,13 @@ class TestApoyoYTipo:
         gestor, r = self._en_atencion(datos)
         h = cabeceras(gestor)
         post = lambda c: client.post(f"/api/reportes/{r.id}/apoyo", headers=h, json=c)
-        assert post({"organismo_ids": []}).status_code == 400  # sin cambios
+        assert post({"organismo_ids": []}).status_code == 400
         assert post({"organismo_ids": "x"}).status_code == 400
         assert post({"organismo_ids": ["a"]}).status_code == 400
-        assert post({"organismo_ids": [datos.bomberos.id]}).status_code == 400  # es el principal
+        assert post({"organismo_ids": [datos.bomberos.id]}).status_code == 400
         assert post({"organismo_ids": [9999]}).status_code == 400
-        assert post({"organismo_ids": [datos.defensa.id]}).status_code == 400  # inactivo
-        assert post({"organismo_ids": list(range(1, 8))}).status_code == 400  # demasiados
+        assert post({"organismo_ids": [datos.defensa.id]}).status_code == 400
+        assert post({"organismo_ids": list(range(1, 8))}).status_code == 400
         assert client.post(f"/api/reportes/{r.id}/apoyo", headers=cabeceras(datos.usuario()), json={}).status_code == 403
         pendiente = datos.reporte(datos.usuario())
         assert client.post(f"/api/reportes/{pendiente.id}/apoyo", headers=h, json={"organismo_ids": []}).status_code == 400
@@ -333,9 +331,9 @@ class TestApoyoYTipo:
         h = cabeceras(gestor)
         url = f"/api/reportes/{r.id}/tipo"
         post = lambda c: client.post(url, headers=h, json=c)
-        assert post({"tipo": "Inundacion"}).status_code == 400  # motivo obligatorio
+        assert post({"tipo": "Inundacion"}).status_code == 400
         assert post({"tipo": "Marciano", "comentario": "Motivo valido"}).status_code == 400
-        assert post({"tipo": "Incendio", "comentario": "Motivo valido"}).status_code == 400  # ya es de ese tipo
+        assert post({"tipo": "Incendio", "comentario": "Motivo valido"}).status_code == 400
         d = post({"tipo": "Inundacion", "comentario": "Lo corrigio el gestor"}).get_json()["reporte"]
         assert d["tipo"] == "Inundacion" and "Incendio" in d["historial"][-1]["comentario"]
         assert client.post(url, headers=cabeceras(datos.usuario()), json={"tipo": "Otro", "comentario": "Motivo valido"}).status_code == 403
@@ -348,9 +346,9 @@ class TestPublico:
     def test_mapa_para_ciudadanos_excluye_los_propios_y_recorta_datos(self, client, datos):
         yo, otro = datos.usuario(), datos.usuario()
         datos.reporte(otro, estado="asignado", latitud=4.81234, longitud=-74.31234)
-        datos.reporte(yo, estado="asignado", latitud=4.8, longitud=-74.3)           # propio
-        datos.reporte(otro, estado="pendiente", latitud=4.8, longitud=-74.3)        # sin aceptar
-        datos.reporte(otro, estado="asignado", latitud=None, longitud=None)         # sin coordenadas
+        datos.reporte(yo, estado="asignado", latitud=4.8, longitud=-74.3)
+        datos.reporte(otro, estado="pendiente", latitud=4.8, longitud=-74.3)
+        datos.reporte(otro, estado="asignado", latitud=None, longitud=None)
         lista = client.get("/api/reportes/publico", headers=cabeceras(yo)).get_json()["reportes"]
         assert len(lista) == 1
         assert lista[0]["latitud"] == 4.812 and "folio" not in lista[0] and "descripcion" not in lista[0]

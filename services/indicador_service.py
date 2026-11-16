@@ -1,13 +1,3 @@
-"""
-Indicadores que calcula la propia base de datos con procedimientos almacenados
-(definidos directamente en la base PostgreSQL de Azure):
-
-  fn_resumen_municipio  -> emergencias por estado y prioridad
-  fn_tiempo_respuesta   -> minutos promedio en asignar y en resolver
-  fn_carga_organismos   -> emergencias activas de cada organismo (para decidir a quien asignar)
-
-El gestor siempre queda limitado a su municipio; el administrador puede elegir uno o ver toda la region.
-"""
 from decimal import Decimal
 
 from sqlalchemy import text
@@ -23,7 +13,6 @@ def _valor(v):
 
 
 class IndicadorService:
-
     @staticmethod
     def _municipio(usuario, municipio_id):
         if tiene_alcance_municipal(usuario.rol.nombre):

@@ -9,7 +9,6 @@ user_bp = Blueprint("user_bp", __name__, url_prefix="/api/usuarios")
 @user_bp.route("/me", methods=["GET"])
 @login_activo_required
 def obtener_mi_perfil():
-    """Cualquier usuario autenticado puede consultar sus propios datos."""
     user_id = g.usuario.id
     try:
         usuario = UserService.get_user(user_id)
@@ -21,7 +20,6 @@ def obtener_mi_perfil():
 @user_bp.route("/me", methods=["PUT"])
 @login_activo_required
 def actualizar_mi_perfil():
-    """Nombre, apellido y (solo ciudadanos) municipio del propio usuario."""
     data = request.get_json(silent=True) or {}
     try:
         usuario = UserService.update_me(g.usuario.id, data.get("nombre"),
@@ -70,7 +68,6 @@ def quitar_mi_foto():
 @user_bp.route("/me/foto", methods=["POST"])
 @login_activo_required
 def subir_mi_foto():
-    """Cualquier usuario autenticado puede cambiar su propia foto de perfil."""
     user_id = g.usuario.id
     archivo = request.files.get("foto")
 
@@ -89,7 +86,7 @@ def subir_mi_foto():
 def listar_usuarios():
     busqueda = request.args.get("q")
     rol = request.args.get("rol")
-    estado = request.args.get("estado")  # "activo" | "inactivo"
+    estado = request.args.get("estado")
 
     activo = None
     if estado == "activo":

@@ -1,4 +1,3 @@
-"""HU-17: indicadores y distribuciones."""
 from datetime import datetime, timedelta
 
 from models.reporte import ReporteHistorial

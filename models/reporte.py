@@ -1,7 +1,6 @@
 from extensions import db
 
 
-# HU-11: organismos de apoyo de una emergencia (el principal sigue en reportes.organismo_id)
 reporte_apoyo = db.Table(
     "reporte_apoyo",
     db.Column("reporte_id", db.Integer, db.ForeignKey("reportes.id"), primary_key=True),
@@ -27,15 +26,12 @@ class Reporte(db.Model):
     longitud = db.Column(db.Float, nullable=True)
     afectados = db.Column(db.Integer, nullable=False, default=0)
     heridos = db.Column(db.Integer, nullable=False, default=0)
-    # HU-10: variables que el gestor evalua para calcular la prioridad
     vias_afectadas = db.Column(db.Integer, nullable=True)
-    area_afectada = db.Column(db.Integer, nullable=True)  # metros cuadrados
-    riesgo_propagacion = db.Column(db.String(10), nullable=True)  # bajo / medio / alto
+    area_afectada = db.Column(db.Integer, nullable=True)
+    riesgo_propagacion = db.Column(db.String(10), nullable=True)
 
-    # pendiente -> asignado -> en_atencion -> resuelto   (o descartado)
     estado = db.Column(db.String(20), nullable=False, default="pendiente")
 
-    # Asignacion: el gestor acepta el reporte y lo asigna a un organismo
     organismo_id = db.Column(db.Integer, db.ForeignKey("organismos.id"), nullable=True)
     asignado_por_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=True)
     fecha_asignacion = db.Column(db.DateTime, nullable=True)
@@ -69,13 +65,12 @@ class Evidencia(db.Model):
 
 
 class ReporteHistorial(db.Model):
-    """Cada cambio importante del reporte (asignacion, inicio de atencion, etc.)."""
     __tablename__ = "reporte_historial"
 
     id = db.Column(db.Integer, primary_key=True)
     reporte_id = db.Column(db.Integer, db.ForeignKey("reportes.id"), nullable=False)
     usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=True)
-    accion = db.Column(db.String(20), nullable=False)   # asignar, reasignar, iniciar, resolver, devolver, descartar
+    accion = db.Column(db.String(20), nullable=False)
     estado_anterior = db.Column(db.String(20), nullable=True)
     estado_nuevo = db.Column(db.String(20), nullable=False)
     comentario = db.Column(db.String(300), nullable=True)

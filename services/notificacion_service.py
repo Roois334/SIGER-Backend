@@ -1,24 +1,3 @@
-"""
-HU-15 - Notificaciones.
-
-Eventos que generan una notificacion (cada una identifica la emergencia por su folio):
-
-  reporte_nuevo   -> gestores del municipio
-  asignado        -> ciudadano que reporto + usuarios del organismo asignado
-  reasignado      -> ciudadano + organismo nuevo (y se avisa al organismo anterior)
-  en_atencion     -> ciudadano + gestores del municipio
-  resuelto        -> ciudadano + gestores del municipio
-  devuelto        -> gestores del municipio (el organismo no puede atenderla)
-  descartado      -> ciudadano
-  cerrado         -> ciudadano
-  reclasificado   -> ciudadano + organismo asignado
-
-Mecanismo de entrega: dentro de la plataforma (campana con contador). Ademas, si el
-correo esta configurado y NOTIFICAR_CORREO=1 en el .env, el ciudadano recibe un correo.
-
-IMPORTANTE: generar una notificacion NUNCA debe romper la accion principal. Todo
-va dentro de try/except: si algo falla se registra en el log y la accion sigue.
-"""
 import html
 import logging
 import os
@@ -40,8 +19,6 @@ def _tipo_bonito(tipo):
             "Emergencia medica": "Emergencia médica"}.get(tipo, tipo)
 
 
-# destinatarios
-
 def _gestores(municipio_id):
     return (User.query.join(Rol, User.rol_id == Rol.id)
             .filter(Rol.nombre == GESTOR_MUNICIPAL, User.activo.is_(True), User.municipio_id == municipio_id)
@@ -62,13 +39,9 @@ def _ciudadano(reporte):
     return [c] if c and c.activo else []
 
 
-# nucleo
-
 class NotificacionService:
-
     @staticmethod
     def _crear(destinatarios, reporte, tipo, titulo, mensaje, actor=None):
-        """Agrega una notificacion por destinatario (sin repetir y sin avisar a quien hizo el cambio)."""
         vistos = set()
         creadas = []
         for u in destinatarios:
@@ -86,22 +59,17 @@ class NotificacionService:
 
     @staticmethod
     def _emitir(reporte, evento, actor, destinos):
-        """
-        destinos: lista de (destinatarios, titulo, mensaje) para poder personalizar el texto
-        segun quien lo recibe. Guarda y confirma; si algo falla, deshace SOLO esto y sigue.
-        """
         try:
             creadas = []
             for destinatarios, t, m in destinos:
                 creadas += NotificacionService._crear(destinatarios, reporte, evento, t, m, actor)
             db.session.commit()
             NotificacionService._enviar_correos(reporte, creadas)
-        except Exception as e:  # nunca tumba la accion principal
+        except Exception as e:
             db.session.rollback()
             log.error("No se pudo generar la notificacion '%s' del reporte %s: %s", evento, getattr(reporte, "id", "?"), e)
             print(f"[SIGER] ERROR generando notificacion '{evento}': {e}")
 
-    # correo (opcional)
 
     @staticmethod
     def _enviar_correos(reporte, creadas):
@@ -112,7 +80,7 @@ class NotificacionService:
             if not correo_configurado():
                 return
             for u, n in creadas:
-                if u.id != reporte.ciudadano_id:   # solo el ciudadano recibe correo
+                if u.id != reporte.ciudadano_id:
                     continue
                 enviar_correo(
                     u.email, f"SIGER — {n.titulo}",
@@ -158,7 +126,6 @@ class NotificacionService:
 <tr><td align="center" style="padding:24px 16px 0;font:12px/1.7 {f};color:#57708f;">Ingresa a SIGER para ver el detalle de tu reporte.</td></tr>
 </table></td></tr></table></body></html>"""
 
-    # eventos
 
     @staticmethod
     def reporte_nuevo(reporte):
@@ -230,7 +197,6 @@ class NotificacionService:
             [(_ciudadano(reporte), "Se actualizó el tipo de tu emergencia", texto),
              (_organismo(reporte.organismo_id, reporte.municipio_id), "Se actualizó el tipo de una emergencia", texto)])
 
-    # consulta (usuario)
 
     @staticmethod
     def _dto(n):

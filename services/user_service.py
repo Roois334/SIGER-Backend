@@ -14,8 +14,7 @@ from utilities.validaciones_persona import validar_documento, validar_telefono, 
 from utilities.permisos import ROLES_VALIDOS, CIUDADANO, ORGANISMO_ATENCION, tiene_alcance_municipal
 from utilities.auditoria import registrar_actor
 
-MAX_FOTO_BYTES = 5 * 1024 * 1024  # 5 MB
-# Extension permitida -> como empiezan los bytes de ese formato
+MAX_FOTO_BYTES = 5 * 1024 * 1024
 FIRMAS_FOTO = {
     "jpg": lambda c: c.startswith(b"\xff\xd8\xff"),
     "jpeg": lambda c: c.startswith(b"\xff\xd8\xff"),
@@ -77,7 +76,6 @@ class UserService:
         if not user:
             raise ValueError("Usuario no encontrado")
 
-        # El administrador no puede cambiarse su propio rol (evita quedar sin admins)
         if dto.rol and str(user_id) == str(admin_id) and dto.rol != user.rol.nombre:
             raise ValueError("No puedes cambiar tu propio rol")
 
@@ -87,7 +85,6 @@ class UserService:
                 raise ValueError("Ya existe una cuenta con ese correo")
             user.email = email
 
-        # Solo se valida si el nombre cambio (cuentas antiguas con otro formato siguen editables)
         if dto.nombre and dto.nombre.strip() != user.nombre:
             user.nombre = validar_nombre(dto.nombre, "El nombre")
 
@@ -125,12 +122,10 @@ class UserService:
             user.rol_id = rol.id
             user.rol = rol
 
-        # Gestores y organismos trabajan sobre un municipio: es obligatorio
         if tiene_alcance_municipal(user.rol.nombre) and not user.municipio_id:
             db.session.rollback()
             raise ValueError("Los gestores municipales y organismos de atencion deben tener un municipio asignado")
 
-        # Solo los usuarios de organismo pertenecen a un organismo (y debe operar en su municipio)
         if user.rol.nombre != ORGANISMO_ATENCION:
             user.organismo_id = None
         else:
@@ -142,7 +137,7 @@ class UserService:
                 db.session.rollback()
                 raise ValueError("Ese organismo no opera en el municipio asignado al usuario")
 
-        registrar_actor(admin_id)  # la auditoria de la base guarda que administrador hizo el cambio
+        registrar_actor(admin_id)
         db.session.commit()
         return UserService._to_admin_dto(user).to_dict()
 
@@ -160,12 +155,10 @@ class UserService:
         db.session.commit()
         return UserService._to_admin_dto(user).to_dict()
 
-    # perfil propio
 
     @staticmethod
     def update_me(user_id, nombre, apellido, municipio=None,
                   tipo_documento=None, documento=None, telefono=None):
-        """El usuario edita sus datos personales. Solo el ciudadano puede cambiar su municipio."""
         user = db.session.get(User, user_id)
         if not user:
             raise ValueError("Usuario no encontrado")
@@ -190,7 +183,6 @@ class UserService:
                     raise ValueError("Municipio invalido")
                 user.municipio_id = m.id
 
-        # Documento y telefono: si vienen vacios no se tocan (no se pueden borrar desde aqui)
         try:
             tipo = (tipo_documento or "").strip()
             numero = (documento or "").strip()
@@ -218,7 +210,6 @@ class UserService:
 
     @staticmethod
     def change_email(user_id, nuevo_email, password):
-        """Cambia el correo del propio usuario; exige la contrasena actual."""
         user = db.session.get(User, user_id)
         if not user:
             raise ValueError("Usuario no encontrado")
@@ -270,7 +261,6 @@ class UserService:
 
     @staticmethod
     def update_foto(user_id, archivo, upload_folder):
-        """Guarda la foto de perfil del propio usuario y devuelve su nueva URL."""
         user = db.session.get(User, user_id)
         if not user:
             raise ValueError("Usuario no encontrado")
@@ -292,7 +282,6 @@ class UserService:
         if not FIRMAS_FOTO[extension](cabecera):
             raise ValueError("El archivo esta danado o no es una imagen valida")
 
-        # Primero se guarda la nueva; la anterior se borra solo si todo salio bien
         os.makedirs(upload_folder, exist_ok=True)
         nombre_unico = f"usuario_{user.id}_{uuid.uuid4().hex[:8]}.{extension}"
         archivo.save(os.path.join(upload_folder, nombre_unico))

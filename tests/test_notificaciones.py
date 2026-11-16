@@ -1,4 +1,3 @@
-"""HU-15: notificaciones dentro de la plataforma (y correo opcional al ciudadano)."""
 from models.notificacion import Notificacion
 from services import notificacion_service as ns
 from services.notificacion_service import NotificacionService
@@ -114,7 +113,7 @@ class TestConsulta:
         pendiente = Notificacion.query.filter_by(leida=False).first()
         r = client.post(f"/api/notificaciones/{pendiente.id}/leer", headers=h)
         assert r.get_json()["no_leidas"] == 1 and r.get_json()["notificacion"]["leida"]
-        assert client.post(f"/api/notificaciones/{pendiente.id}/leer", headers=h).status_code == 200  # ya leida
+        assert client.post(f"/api/notificaciones/{pendiente.id}/leer", headers=h).status_code == 200
         assert client.post("/api/notificaciones/leer-todas", headers=h).get_json() == {"no_leidas": 0}
 
     def test_no_se_pueden_leer_las_de_otro(self, client, datos):
@@ -159,7 +158,7 @@ class TestCorreo:
         e = _escenario(datos)
         monkeypatch.setenv("NOTIFICAR_CORREO", "1")
         r = datos.reporte(e["ciudadano"])
-        NotificacionService._enviar_correos(r, [(e["ciudadano"], Notificacion(titulo="t", mensaje="m"))])  # sin MAIL_USER
+        NotificacionService._enviar_correos(r, [(e["ciudadano"], Notificacion(titulo="t", mensaje="m"))])
         monkeypatch.setenv("MAIL_USER", "a@b.com")
         monkeypatch.setenv("MAIL_PASSWORD", "x")
         import utilities.correo as correo

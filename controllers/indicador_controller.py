@@ -18,14 +18,12 @@ def _responder(funcion, **filtros):
 @indicador_bp.route("/resumen", methods=["GET"])
 @permiso_required("estadisticas.ver")
 def resumen():
-    """Emergencias por estado y prioridad (fn_resumen_municipio)."""
     return _responder(IndicadorService.resumen, municipio_id=request.args.get("municipio_id", type=int))
 
 
 @indicador_bp.route("/tiempos", methods=["GET"])
 @permiso_required("estadisticas.ver")
 def tiempos():
-    """Minutos promedio en asignar y en resolver (fn_tiempo_respuesta). Filtros: desde, hasta (AAAA-MM-DD)."""
     return _responder(IndicadorService.tiempos, municipio_id=request.args.get("municipio_id", type=int),
                       desde=request.args.get("desde"), hasta=request.args.get("hasta"))
 
@@ -33,5 +31,4 @@ def tiempos():
 @indicador_bp.route("/carga-organismos", methods=["GET"])
 @permiso_required("reportes.asignar")
 def carga_organismos():
-    """Emergencias activas de cada organismo (fn_carga_organismos), para decidir a quien asignar."""
     return _responder(IndicadorService.carga_organismos, municipio_id=request.args.get("municipio_id", type=int))

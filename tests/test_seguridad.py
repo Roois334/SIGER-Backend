@@ -1,4 +1,3 @@
-"""La contrasena viaja por la red: solo se acepta por HTTPS y nada sensible se guarda en cache."""
 import pytest
 from flask import Flask, jsonify
 

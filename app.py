@@ -15,19 +15,14 @@ from controllers.publico_controller import publico_bp
 from controllers.estadistica_controller import estadistica_bp
 from controllers.indicador_controller import indicador_bp
 from utilities.seguridad import aplicar_seguridad
-import models.password_reset  # noqa: F401  (registra la tabla password_resets)
-import models.notificacion  # noqa: F401  (registra la tabla notificaciones)
+import models.password_reset  # noqa: F401
+import models.notificacion  # noqa: F401
 
-# Sin proteccion CSRF a proposito: esta API no usa cookies de sesion. Cada peticion se autentica con el
-# token JWT en la cabecera Authorization, que el navegador no envia solo desde otro sitio (CSRF no aplica).
 app = Flask(__name__)  # NOSONAR
 app.config.from_object(Config)
-# HTTPS obligatorio detras de Azure + HSTS + "no-store" en login/contrasenas (ver utilities/seguridad.py)
 aplicar_seguridad(app, rutas_sensibles=("/api/auth", "/api/usuarios/me"))
 CORS(app, origins=[Config.FRONTEND_URL, "http://localhost:5001", "http://127.0.0.1:5001"])
 
-# La estructura de la base (tablas, catalogos, triggers y procedimientos) vive en la base PostgreSQL
-# de Azure. Por eso aqui NO se hace db.create_all(). Si cambias un modelo, actualiza tambien la base.
 db.init_app(app)
 JWTManager(app)
 for blueprint in (auth_bp, user_bp, municipio_bp, organismo_bp, reporte_bp,
@@ -36,7 +31,6 @@ for blueprint in (auth_bp, user_bp, municipio_bp, organismo_bp, reporte_bp,
 
 @app.route("/static/uploads/perfiles/<path:nombre>")
 def foto_perfil(nombre):
-    """Las fotos de perfil viven en UPLOAD_FOLDER_PERFILES (en Azure, fuera del codigo desplegado)."""
     return send_from_directory(app.config["UPLOAD_FOLDER_PERFILES"], nombre)
 
 

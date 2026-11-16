@@ -43,7 +43,6 @@ class UserResponseDTO:
 
 
 class UserUpdateDTO:
-    """Datos que un administrador puede modificar de un usuario existente."""
     def __init__(self, nombre=None, apellido=None, email=None, municipio=None, rol=None, organismo_id=None):
         self.organismo_id = organismo_id
         self.nombre = nombre
@@ -54,7 +53,6 @@ class UserUpdateDTO:
 
 
 class UserAdminDTO:
-    """Representacion de un usuario para el panel de administracion."""
     def __init__(self, id, nombre, apellido, email, rol, municipio, activo, fecha_creacion, foto_url=None,
                  organismo=None, organismo_id=None, tipo_documento=None, documento=None, telefono=None):
         self.tipo_documento = tipo_documento

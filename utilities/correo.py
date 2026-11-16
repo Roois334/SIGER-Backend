@@ -1,14 +1,3 @@
-"""
-Envio de correos con Gmail (SMTP de Google).
-
-Variables del .env del BACKEND:
-    MAIL_USER: la cuenta de Gmail que envia los correos
-    MAIL_PASSWORD: la contrasena de aplicacion que genera Google (16 letras, sin espacios)
-    MAIL_NOMBRE: nombre que ve quien recibe el correo (por defecto SIGER)
-
-Si MAIL_USER / MAIL_PASSWORD no estan definidos, el enlace se imprime en la
-consola del backend (modo desarrollo) en vez de enviarse.
-"""
 import logging
 import os
 import smtplib
@@ -42,7 +31,6 @@ def _enviar(destino, asunto, html, texto, imagenes=None):
     msg.set_content(texto)
     msg.add_alternative(html, subtype="html")
 
-    # Imagenes incrustadas (se ven dentro del correo sin pedir "mostrar imagenes")
     cuerpo_html = msg.get_body(("html",))
     for cid in (imagenes or []):
         ruta = os.path.join(CARPETA_IMAGENES, cid + ".png")
@@ -50,7 +38,6 @@ def _enviar(destino, asunto, html, texto, imagenes=None):
             with open(ruta, "rb") as f:
                 cuerpo_html.add_related(f.read(), maintype="image", subtype="png", cid=f"<{cid}@siger>")
 
-    # Conexion cifrada que SIEMPRE verifica el certificado y el nombre del servidor de correo
     contexto = ssl.create_default_context()
     contexto.check_hostname = True
     contexto.verify_mode = ssl.CERT_REQUIRED
@@ -60,13 +47,12 @@ def _enviar(destino, asunto, html, texto, imagenes=None):
             s.login(usuario, clave)
             s.send_message(msg)
         log.info("Correo enviado a %s", destino)
-    except Exception as e:  # no tumba la peticion: el usuario siempre ve el mismo mensaje
+    except Exception as e:
         log.error("No se pudo enviar el correo a %s: %s", destino, e)
         print(f"[SIGER] ERROR enviando correo a {destino}: {e}")
 
 
 def enviar_correo(destino, asunto, html, texto, enlace_dev=None, imagenes=None):
-    """Envia en segundo plano (la peticion no espera a Gmail)."""
     if not correo_configurado():
         print("\n[SIGER] Correo NO configurado (MAIL_USER / MAIL_PASSWORD). Modo desarrollo.")
         print(f"[SIGER] Para: {destino}\n[SIGER] Asunto: {asunto}\n[SIGER] Enlace: {enlace_dev}\n")

@@ -5,7 +5,6 @@ from services.recuperacion_service import RecuperacionService
 from utilities.limitador import LimitadorIntentos
 from utilities.permisos import CIUDADANO
 
-# 5 intentos fallidos por correo cada 15 minutos
 _limitador_login = LimitadorIntentos(maximo=5, ventana_seg=900)
 
 auth_bp = Blueprint("auth_bp", __name__, url_prefix="/api/auth")
@@ -20,7 +19,7 @@ def register():
             apellido=data.get("apellido"),
             email=data.get("email"),
             password=data.get("password"),
-            rol=CIUDADANO,  # el registro publico SIEMPRE crea ciudadanos
+            rol=CIUDADANO,
             municipio=data.get("municipio"),
             tipo_documento=data.get("tipo_documento"),
             documento=data.get("documento"),
@@ -52,7 +51,6 @@ def login():
 
 @auth_bp.route("/olvide-password", methods=["POST"])
 def olvide_password():
-    """Envia un enlace de recuperacion. Responde siempre igual para no revelar que correos existen."""
     data = request.get_json(silent=True) or {}
     try:
         RecuperacionService.solicitar(data.get("email"))

@@ -1,4 +1,3 @@
-"""Reglas puras: validaciones, prioridad, fechas, limitador de intentos y permisos."""
 from datetime import date, datetime
 
 import pytest

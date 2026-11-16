@@ -1,10 +1,3 @@
-"""
-Apoyo a los triggers y procedimientos almacenados de la base PostgreSQL.
-
-registrar_actor() le dice a la base QUIEN hace el cambio en la transaccion actual, para que el
-trigger trg_auditoria_usuarios lo guarde en auditoria_usuarios.modificado_por. El valor dura solo
-hasta el commit. En SQLite (las pruebas) no hay triggers, asi que no hace nada.
-"""
 from sqlalchemy import text
 
 from extensions import db

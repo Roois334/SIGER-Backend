@@ -11,7 +11,6 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     rol_id = db.Column(db.Integer, db.ForeignKey("roles.id"), nullable=False)
     municipio_id = db.Column(db.Integer, db.ForeignKey("municipios.id"), nullable=True)
-    # Solo para usuarios con rol organismo_atencion: a que organismo pertenecen
     organismo_id = db.Column(db.Integer, db.ForeignKey("organismos.id"), nullable=True)
     activo = db.Column(db.Boolean, nullable=False, default=True)
     foto_url = db.Column(db.String(255), nullable=True)

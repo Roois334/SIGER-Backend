@@ -1,10 +1,3 @@
-"""
-Indicadores calculados por procedimientos almacenados de PostgreSQL y apoyo a la auditoria.
-
-Las pruebas corren en SQLite, donde esos procedimientos no existen: se simula la respuesta de
-PostgreSQL y se comprueba que la app llama al procedimiento correcto, con el alcance correcto.
-Los procedimientos en si se prueban contra PostgreSQL (ver README, "Triggers y procedimientos").
-"""
 from decimal import Decimal
 
 import pytest
@@ -21,7 +14,6 @@ class _Fila:
 
 @pytest.fixture
 def postgres_simulado(monkeypatch):
-    """Hace creer a la app que usa PostgreSQL y guarda cada consulta que hace."""
     llamadas = []
     respuestas = {
         "fn_resumen_municipio": [_Fila(estado="pendiente", total=2, critica=1, alta=1, media=0, baja=0)],
