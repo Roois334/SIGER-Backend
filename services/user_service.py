@@ -12,6 +12,7 @@ from dtos.user_dto import UserAdminDTO
 from utilities.validaciones import validar_email, validar_password
 from utilities.validaciones_persona import validar_documento, validar_telefono, validar_nombre
 from utilities.permisos import ROLES_VALIDOS, CIUDADANO, ORGANISMO_ATENCION, tiene_alcance_municipal
+from utilities.auditoria import registrar_actor
 
 MAX_FOTO_BYTES = 5 * 1024 * 1024  # 5 MB
 # Extension permitida -> como empiezan los bytes de ese formato
@@ -141,6 +142,7 @@ class UserService:
                 db.session.rollback()
                 raise ValueError("Ese organismo no opera en el municipio asignado al usuario")
 
+        registrar_actor(admin_id)  # la auditoria de la base guarda que administrador hizo el cambio
         db.session.commit()
         return UserService._to_admin_dto(user).to_dict()
 
@@ -154,6 +156,7 @@ class UserService:
             raise ValueError("Usuario no encontrado")
 
         user.activo = activo
+        registrar_actor(admin_id)
         db.session.commit()
         return UserService._to_admin_dto(user).to_dict()
 

@@ -13,6 +13,7 @@ from controllers.reporte_controller import reporte_bp
 from controllers.notificacion_controller import notificacion_bp
 from controllers.publico_controller import publico_bp
 from controllers.estadistica_controller import estadistica_bp
+from controllers.indicador_controller import indicador_bp
 from utilities.seguridad import aplicar_seguridad
 import models.password_reset  # noqa: F401  (registra la tabla password_resets)
 import models.notificacion  # noqa: F401  (registra la tabla notificaciones)
@@ -25,13 +26,14 @@ app.config.from_object(Config)
 aplicar_seguridad(app, rutas_sensibles=("/api/auth", "/api/usuarios/me"))
 CORS(app, origins=[Config.FRONTEND_URL, "http://localhost:5001", "http://127.0.0.1:5001"])
 
-# La estructura de la base (tablas, triggers y datos de catalogo) sale de database/siger_db.sql.
+# La estructura de la base sale de database/siger_db.sql (tablas y catalogos) y de
+# database/triggers_y_procedimientos.sql (triggers y procedimientos almacenados).
 # Por eso aqui NO se hace db.create_all(). Si cambias un modelo, actualiza la base y
 # vuelve a exportar el esquema con database/exportar_esquema.py.
 db.init_app(app)
 JWTManager(app)
 for blueprint in (auth_bp, user_bp, municipio_bp, organismo_bp, reporte_bp,
-                  notificacion_bp, publico_bp, estadistica_bp):
+                  notificacion_bp, publico_bp, estadistica_bp, indicador_bp):
     app.register_blueprint(blueprint)
 
 @app.route("/static/uploads/perfiles/<path:nombre>")

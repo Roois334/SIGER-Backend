@@ -19,6 +19,7 @@ Base de datos PostgreSQL. Generado a partir de `database/siger_db.sql` y `models
 | `reporte_apoyo` | Tabla intermedia (N:M): organismos de apoyo de una emergencia (el principal está en reportes.organismo_id). |
 | `reporte_historial` | Bitácora de cada cambio importante de un reporte. |
 | `notificaciones` | Avisos para un usuario cuando cambia algo en una emergencia (HU-15). |
+| `auditoria_usuarios` | Bitácora de cambios de rol y de estado de las cuentas (la llena un trigger). |
 
 ## roles
 
@@ -182,6 +183,22 @@ Avisos para un usuario cuando cambia algo en una emergencia (HU-15).
 | `leida` | BOOLEAN | NO |  |  | false | Si el usuario ya la leyó. |
 | `fecha_creacion` | TIMESTAMP | NO |  |  | now() | Fecha del aviso. |
 
+## auditoria_usuarios
+
+Bitácora de cambios de rol y de estado (activa/inactiva) de las cuentas. La llena el trigger
+`trg_auditoria_usuarios` (ver `database/triggers_y_procedimientos.sql`); la aplicación no escribe aquí.
+
+| Campo | Tipo | Nulo | Clave | Referencia | Defecto | Descripción |
+|---|---|---|---|---|---|---|
+| `id` | SERIAL (INTEGER) | NO | PK |  | autoincremental | Identificador. |
+| `usuario_id` | INTEGER | NO | FK (índice) | usuarios.id (ON DELETE CASCADE) |  | Cuenta que cambió. |
+| `campo` | VARCHAR(20) | NO |  |  |  | Qué cambió: `rol` o `activo`. |
+| `valor_anterior` | VARCHAR(60) | SI |  |  |  | Valor antes del cambio (nombre del rol, o `activa`/`inactiva`). |
+| `valor_nuevo` | VARCHAR(60) | SI |  |  |  | Valor después del cambio. |
+| `modificado_por` | INTEGER | SI | FK | usuarios.id (ON DELETE SET NULL) |  | Administrador que hizo el cambio (lo informa el backend). Vacío si el cambio se hizo por fuera de la app. |
+| `usuario_bd` | VARCHAR(63) | NO |  |  | current_user | Usuario de base de datos que ejecutó el cambio. |
+| `fecha` | TIMESTAMP | NO |  |  | siger_ahora() | Fecha del cambio, en hora de Colombia. |
+
 ## Relaciones
 
 ```
@@ -200,4 +217,5 @@ usuarios 1──N reporte_historial
 usuarios 1──N notificaciones
 reportes 1──N notificaciones
 usuarios 1──N password_resets
+usuarios 1──N auditoria_usuarios  (usuario_id y modificado_por)
 ```
