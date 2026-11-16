@@ -13,11 +13,14 @@ from controllers.reporte_controller import reporte_bp
 from controllers.notificacion_controller import notificacion_bp
 from controllers.publico_controller import publico_bp
 from controllers.estadistica_controller import estadistica_bp
+from utilities.seguridad import aplicar_seguridad
 import models.password_reset  # noqa: F401  (registra la tabla password_resets)
 import models.notificacion  # noqa: F401  (registra la tabla notificaciones)
 
 app = Flask(__name__)
 app.config.from_object(Config)
+# HTTPS obligatorio detras de Azure + HSTS + "no-store" en login/contrasenas (ver utilities/seguridad.py)
+aplicar_seguridad(app, rutas_sensibles=("/api/auth", "/api/usuarios/me"))
 CORS(app, origins=[Config.FRONTEND_URL, "http://localhost:5001", "http://127.0.0.1:5001"])
 
 # La estructura de la base (tablas, triggers y datos de catalogo) sale de database/siger_db.sql.
