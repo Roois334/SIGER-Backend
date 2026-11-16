@@ -2,9 +2,9 @@
 Envio de correos con Gmail (SMTP de Google).
 
 Variables del .env del BACKEND:
-    MAIL_USER      = tucorreo@gmail.com
-    MAIL_PASSWORD  = contrasena de aplicacion de Google (16 letras, sin espacios)
-    MAIL_NOMBRE    = SIGER            (nombre que ve quien recibe el correo)
+    MAIL_USER: la cuenta de Gmail que envia los correos
+    MAIL_PASSWORD: la contrasena de aplicacion que genera Google (16 letras, sin espacios)
+    MAIL_NOMBRE: nombre que ve quien recibe el correo (por defecto SIGER)
 
 Si MAIL_USER / MAIL_PASSWORD no estan definidos, el enlace se imprime en la
 consola del backend (modo desarrollo) en vez de enviarse.
@@ -50,9 +50,13 @@ def _enviar(destino, asunto, html, texto, imagenes=None):
             with open(ruta, "rb") as f:
                 cuerpo_html.add_related(f.read(), maintype="image", subtype="png", cid=f"<{cid}@siger>")
 
+    # Conexion cifrada que SIEMPRE verifica el certificado y el nombre del servidor de correo
+    contexto = ssl.create_default_context()
+    contexto.check_hostname = True
+    contexto.verify_mode = ssl.CERT_REQUIRED
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as s:
-            s.starttls(context=ssl.create_default_context())
+            s.starttls(context=contexto)
             s.login(usuario, clave)
             s.send_message(msg)
         log.info("Correo enviado a %s", destino)
