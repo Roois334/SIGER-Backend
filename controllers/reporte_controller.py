@@ -16,17 +16,12 @@ def _error(e):
 @reporte_bp.route("/configuracion", methods=["GET"])
 @login_activo_required
 def configuracion_reportes():
-    """Tipos de emergencia, prioridades y limites que usa el formulario."""
     return jsonify(ReporteService.configuracion()), 200
 
 
 @reporte_bp.route("", methods=["POST"])
 @permiso_required("reportes.crear")
 def crear_reporte():
-    """
-    Solo los ciudadanos registran emergencias (ver utilities/permisos.py).
-    Se envia como multipart/form-data para poder incluir las evidencias.
-    """
     ciudadano_id = g.usuario.id
     data = request.form
 
@@ -64,10 +59,6 @@ def listar_mis_reportes():
 @reporte_bp.route("/gestion", methods=["GET"])
 @permiso_required("emergencias.consultar")
 def listar_reportes_gestion():
-    """
-    Listado de emergencias. El administrador ve todo; gestores y organismos
-    solo ven las de su municipio (el filtro lo aplica el servicio).
-    """
     try:
         reportes = ReporteService.list_reportes_gestion(
             busqueda=request.args.get("q"),
@@ -87,7 +78,6 @@ def listar_reportes_gestion():
 @reporte_bp.route("/publico", methods=["GET"])
 @login_activo_required
 def listar_reportes_publicos():
-    """Emergencias activas de la comunidad con datos recortados (sin informacion personal)."""
     reportes = ReporteService.list_reportes_publicos(g.usuario)
     return jsonify({"reportes": reportes}), 200
 
@@ -105,7 +95,6 @@ def obtener_reporte(reporte_id):
 @reporte_bp.route("/<int:reporte_id>/asignar", methods=["POST"])
 @permiso_required("reportes.asignar")
 def asignar_reporte(reporte_id):
-    """El gestor acepta el reporte y lo asigna (o reasigna) a un organismo."""
     data = request.get_json(silent=True) or {}
     try:
         reporte = ReporteService.asignar_reporte(
@@ -122,10 +111,6 @@ def asignar_reporte(reporte_id):
 @reporte_bp.route("/<int:reporte_id>/estado", methods=["POST"])
 @login_activo_required
 def cambiar_estado_reporte(reporte_id):
-    """
-    Acciones: descartar (gestor), iniciar / resolver / devolver (organismo asignado).
-    El servicio valida quien puede hacer cada una y desde que estado.
-    """
     data = request.get_json(silent=True) or {}
     try:
         reporte = ReporteService.cambiar_estado(
@@ -139,7 +124,6 @@ def cambiar_estado_reporte(reporte_id):
 @reporte_bp.route("/<int:reporte_id>/apoyo", methods=["POST"])
 @login_activo_required
 def definir_apoyos_reporte(reporte_id):
-    """El gestor define los organismos de apoyo de una emergencia asignada o en atencion."""
     data = request.get_json(silent=True) or {}
     try:
         reporte = ReporteService.definir_apoyos(reporte_id, data.get("organismo_ids"), g.usuario)
@@ -151,7 +135,6 @@ def definir_apoyos_reporte(reporte_id):
 @reporte_bp.route("/<int:reporte_id>/tipo", methods=["POST"])
 @login_activo_required
 def cambiar_tipo_reporte(reporte_id):
-    """El gestor corrige el tipo de una emergencia abierta (motivo obligatorio)."""
     data = request.get_json(silent=True) or {}
     try:
         reporte = ReporteService.cambiar_tipo(
@@ -165,18 +148,11 @@ def cambiar_tipo_reporte(reporte_id):
 @reporte_bp.route("/evidencias/<int:evidencia_id>", methods=["GET"])
 @login_activo_required
 def obtener_evidencia(evidencia_id):
-    """
-    Sirve el archivo de una evidencia solo si el usuario puede ver el
-    reporte al que pertenece (dueno, admin, o gestor/organismo de ese municipio).
-    """
     try:
         evidencia = ReporteService.get_evidencia_autorizada(evidencia_id, g.usuario)
     except ValueError as e:
         return _error(e)
 
-    # Se usa solo el nombre del archivo (nunca una ruta del cliente/BD) y se busca
-    # primero en la carpeta privada actual y luego en la carpeta antigua (static),
-    # para que las evidencias subidas antes de este cambio sigan funcionando.
     nombre = os.path.basename(evidencia.ruta_archivo)
     carpetas = [
         current_app.config["UPLOAD_FOLDER"],

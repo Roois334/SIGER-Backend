@@ -1,4 +1,3 @@
-"""Registro, login (con limitador de intentos) y recuperacion de contrasena."""
 from datetime import timedelta
 
 from tests.conftest import PASSWORD, cabeceras
@@ -25,7 +24,7 @@ class TestRegistro:
         assert cuerpo["usuario"]["rol"] == "ciudadano"
         assert "password" not in str(cuerpo).lower().replace("password_hash", "")
         usuario = User.query.filter_by(email="laura@correo.com").one()
-        assert usuario.password_hash != PASSWORD  # nunca se guarda en claro
+        assert usuario.password_hash != PASSWORD
 
     def test_ignora_un_rol_enviado_por_el_cliente(self, client, datos):
         r = client.post("/api/auth/register", json=_registro(datos, rol="administrador"))
@@ -99,7 +98,6 @@ class TestLogin:
 
 class TestRecuperacion:
     def _token_para(self, usuario, monkeypatch):
-        """Pide el enlace y captura el token que iria en el correo."""
         enviados = []
         monkeypatch.setattr(rec, "enviar_correo", lambda *a, **k: enviados.append(k["enlace_dev"]))
         RecuperacionService.solicitar(usuario.email)
@@ -123,7 +121,6 @@ class TestRecuperacion:
         r = client.post("/api/auth/restablecer", json={"token": token, "nueva": "Nueva.5678"})
         assert r.status_code == 200
         assert client.post("/api/auth/login", json={"email": "ok@correo.com", "password": "Nueva.5678"}).status_code == 200
-        # el enlace es de un solo uso
         assert client.post("/api/auth/restablecer", json={"token": token, "nueva": "Otra.56789"}).status_code == 400
         assert client.get(f"/api/auth/restablecer/{token}").status_code == 410
 

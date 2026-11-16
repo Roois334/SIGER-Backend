@@ -1,15 +1,7 @@
-"""
-Configuracion comun de las pruebas del backend.
-
-- Base de datos: SQLite EN MEMORIA (no toca Azure ni PostgreSQL). Cada prueba parte de una base nueva
-  con los catalogos minimos (roles, municipios, organismos).
-- Los correos no se envian y las carpetas de archivos subidos son temporales.
-"""
 import io
 import os
 import itertools
 
-# Variables que debe haber ANTES de importar la app (config.py las lee al importarse)
 os.environ["SECRET_KEY"] = "clave-solo-para-pruebas-0123456789abcdef"
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ.pop("FLASK_DEBUG", None)
@@ -34,7 +26,6 @@ def app():
 
 @pytest.fixture(autouse=True)
 def entorno(app, tmp_path, monkeypatch):
-    """Base nueva por prueba, sin correo real y con carpetas temporales."""
     for variable in ("MAIL_USER", "MAIL_PASSWORD", "NOTIFICAR_CORREO", "FORCE_HTTPS"):
         monkeypatch.delenv(variable, raising=False)
     app.config["UPLOAD_FOLDER"] = str(tmp_path / "evidencias")
@@ -55,8 +46,6 @@ def client(app):
 
 
 class Datos:
-    """Catalogos sembrados + fabricas de usuarios y reportes."""
-
     def __init__(self):
         from extensions import db
         from models.catalogos import Rol, Municipio, Organismo
@@ -117,7 +106,6 @@ def datos(entorno):
 
 
 def cabeceras(usuario):
-    """Cabecera Authorization con un JWT valido para ese usuario."""
     return {"Authorization": "Bearer " + create_access_token(identity=str(usuario.id))}
 
 

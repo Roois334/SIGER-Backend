@@ -8,7 +8,6 @@ class Rol(db.Model):
     descripcion = db.Column(db.String(150))
 
 
-# Tabla intermedia para la relacion muchos-a-muchos entre organismos y municipios
 organismo_municipio = db.Table(
     "organismo_municipio",
     db.Column("organismo_id", db.Integer, db.ForeignKey("organismos.id"), primary_key=True),

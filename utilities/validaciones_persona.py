@@ -13,7 +13,6 @@ _NOMBRE_RE = re.compile(rf"^[{_LETRAS}]+(?:[ '\-][{_LETRAS}]+)*$")
 
 
 def validar_nombre(valor, campo="El nombre"):
-    """Nombres y apellidos: solo letras (con tildes y n), espacios, apostrofe y guion. Devuelve el texto limpio."""
     valor = re.sub(r"\s+", " ", (valor or "").strip())
     if not valor:
         raise ValueError(f"{campo} es obligatorio")
@@ -27,7 +26,6 @@ def validar_nombre(valor, campo="El nombre"):
 
 
 def validar_documento(tipo, numero):
-    """Devuelve (tipo, numero) limpios o lanza ValueError."""
     tipo = (tipo or "").strip().upper()
     if tipo not in TIPOS_DOCUMENTO:
         raise ValueError("Selecciona el tipo de documento")
@@ -43,7 +41,6 @@ def validar_documento(tipo, numero):
 
 
 def validar_telefono(telefono):
-    """Celular colombiano (3XXXXXXXXX) o fijo con indicativo (60XXXXXXXX). Devuelve 10 digitos."""
     digitos = re.sub(r"[\s\-()]", "", telefono or "")
     if digitos.startswith("+57"):
         digitos = digitos[3:]

@@ -30,8 +30,6 @@ def _enmascarar(email):
 
 
 def _correo_html(nombre, enlace, minutos):
-    # Mismos colores y formas que la aplicacion web (tema oscuro de SIGER).
-    # Las imagenes (logo, logo grande, icono) viajan incrustadas en el correo (cid:).
     fuente = "'Plus Jakarta Sans','Segoe UI',Helvetica,Arial,sans-serif"
     return f"""\
 <!doctype html>
@@ -148,14 +146,9 @@ def _correo_html(nombre, enlace, minutos):
 </body></html>"""
 
 
-
 class RecuperacionService:
     @staticmethod
     def solicitar(email):
-        """
-        Crea un enlace de un solo uso y lo envia al correo. NUNCA revela si el correo existe:
-        el que llama siempre responde lo mismo.
-        """
         email = (email or "").strip().lower()
         if not email or "@" not in email:
             raise ValueError("Escribe tu correo electronico")
@@ -169,9 +162,8 @@ class RecuperacionService:
             PasswordReset.usuario_id == user.id, PasswordReset.fecha_creacion >= hace_una_hora
         ).count()
         if recientes >= MAX_SOLICITUDES_POR_HORA:
-            return  # silencioso: evita que alguien llene el buzon de otra persona
+            return
 
-        # Los enlaces anteriores quedan invalidados
         PasswordReset.query.filter_by(usuario_id=user.id, usado=False).update({"usado": True})
 
         token = secrets.token_urlsafe(32)

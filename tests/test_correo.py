@@ -1,4 +1,3 @@
-"""Envio de correos (SMTP simulado: nunca se contacta a Gmail)."""
 import threading
 
 import utilities.correo as correo

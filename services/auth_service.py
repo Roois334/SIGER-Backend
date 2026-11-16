@@ -13,7 +13,6 @@ from utilities.permisos import CIUDADANO
 class AuthService:
     @staticmethod
     def register(dto):
-        # El registro publico SIEMPRE crea ciudadanos, sin importar lo que llegue en dto.rol
         rol = Rol.query.filter_by(nombre=CIUDADANO).first()
         if not rol:
             raise ValueError("Rol invalido")
@@ -62,7 +61,6 @@ class AuthService:
     def login(dto):
         email = (dto.email or "").strip().lower()
         password = dto.password
-        # Sin contrasena, que no sea texto o desmedida: mismo mensaje generico (y no se calcula el hash)
         if not isinstance(password, str) or not password or len(password) > MAX_PASSWORD:
             raise ValueError("Correo o contrasena incorrectos")
         user = User.query.filter_by(email=email, activo=True).first()

@@ -4,8 +4,6 @@
 frontend de SIGER: usuarios, municipios, organismos de atención,
 reportes de emergencia, asignación, seguimiento, mapa público, estadísticas y recuperación de contraseña.
 
-> Planeación del proyecto: historias de usuario, sprints y responsables en [PLANNER.md](PLANNER.md).
-
 > El frontend y el backend son dos aplicaciones independientes. Primero se levanta el backend (puerto 5000)
 > y después el frontend (puerto 5001).
 
@@ -25,7 +23,6 @@ BACKEND/
 ├── models/                # tablas (SQLAlchemy)
 ├── dtos/                  # objetos que viajan entre capas / hacia el cliente
 ├── utilities/             # permisos por rol, validaciones, limitador de intentos, correo, prioridad
-├── database/              # esquema SQL y script para exportarlo
 ├── static/correo/         # imágenes de los correos
 └── uploads_privados/      # evidencias subidas (no se versiona; se crea sola)
 ```
@@ -46,16 +43,10 @@ pip install -r requirements.txt
 
 ### 2. Base de datos
 
-La base del proyecto está en **Azure Database for PostgreSQL** (servidor `siger-pg-2716`, grupo de recursos
-`siger-rg`). Para montar una base **nueva** en PostgreSQL, créala vacía (por ejemplo `siger_db`) e impórtale el esquema:
-
-```powershell
-psql "host=TU_HOST user=TU_USUARIO dbname=siger_db sslmode=require" -f database/siger_db.sql
-```
-
-El archivo `database/siger_db.sql` crea todas las tablas e inserta los datos de catálogo (roles, municipios,
-organismos y su relación). **No trae usuarios.** Con una herramienta gráfica (pgAdmin, DBeaver, Azure Data Studio)
-basta con ejecutar ese archivo sobre la base vacía. Se puede ejecutar varias veces sin duplicar nada.
+La base del proyecto está en **Azure Database for PostgreSQL** (servidor `siger-pg-2716`, base `siger_db`, grupo de
+recursos `siger-rg`) y ya tiene todas las tablas, los catálogos, los triggers y los procedimientos almacenados.
+No hay que crear nada: basta con poner los datos de conexión en el `.env` (paso 3). Azure solo acepta conexiones
+desde las IP autorizadas en el servidor (*Redes* en el portal).
 
 ### 3. Variables de entorno
 
@@ -141,12 +132,69 @@ Todas las rutas (salvo registro, login y recuperación de contraseña) exigen `A
 | `/api/usuarios` | `GET /me`, `PUT /me`, `PUT /me/email`, `PUT /me/password`, `POST/DELETE /me/foto`; administración: `GET ""`, `GET/PUT /<id>`, `PATCH /<id>/estado` |
 | `/api/municipios` | `GET ""`, `GET /activos`, `POST ""`, `GET/PUT /<id>`, `PATCH /<id>/estado` |
 | `/api/organismos` | `GET ""`, `POST ""`, `GET/PUT /<id>`, `PATCH /<id>/estado`, `PUT /<id>/municipios` |
-| `/api/reportes` | `POST ""` (crear), `GET ""` (mis reportes), `GET /gestion` (listado con filtros `q, tipo, estado, prioridad, municipio_id, desde, hasta`), `GET /<id>`, `POST /<id>/asignar`, `POST /<id>/estado` (iniciar, resolver, devolver, descartar, cerrar), `POST /<id>/tipo`, `GET /estadisticas`, `GET /publico`, `GET /configuracion`, `GET /evidencias/<id>` |
+| `/api/reportes` | `POST ""` (crear), `GET ""` (mis reportes), `GET /gestion` (listado con filtros `q, tipo, estado, prioridad, municipio_id, desde, hasta`), `GET /<id>`, `POST /<id>/asignar`, `POST /<id>/estado` (iniciar, resolver, devolver, descartar, cerrar), `POST /<id>/tipo`, `POST /<id>/apoyo`, `GET /publico`, `GET /configuracion`, `GET /evidencias/<id>` |
+| `/api/estadisticas` | `GET ""` (indicadores y distribuciones; filtros `desde, hasta, municipio_id, tipo, prioridad, estado`) |
+| `/api/indicadores` | `GET /resumen`, `GET /tiempos` (filtros `desde, hasta`), `GET /carga-organismos`; filtro `municipio_id`. Los calcula PostgreSQL con procedimientos almacenados |
+| `/api/notificaciones` | `GET ""`, `GET /contador`, `POST /<id>/leer`, `POST /leer-todas` |
+| `/api/publico` | `GET /mapa` (sin sesión) |
+
+## Triggers y procedimientos almacenados
+
+Están creados directamente en la base PostgreSQL de Azure (`siger_db`).
+
+**Dónde verlos** en la extensión PostgreSQL de VS Code (`siger_db > Schemas > public`):
+
+| Carpeta | Contenido |
+|---|---|
+| `Views > vista_triggers_y_procedimientos` | La lista completa de los 5 triggers y 5 procedimientos, con su descripción |
+| `Functions` | Los 3 procedimientos que devuelven datos (`fn_...`) |
+| `Procedures` | Los 2 procedimientos que hacen una acción (`sp_...`) |
+| `Trigger Functions` | El código que ejecuta cada trigger (`trgfn_...`) |
+| `Tables > (tabla) > Triggers` | Cada trigger, dentro de la tabla donde actúa (`trg_...`) |
+
+O en una consulta: `SELECT * FROM vista_triggers_y_procedimientos;`
+
+**Triggers** (se ejecutan solos):
+
+| Trigger | Tabla | Qué hace |
+|---|---|---|
+| `trg_validar_reporte` | `reportes` | Rechaza datos imposibles: negativos, más heridos que afectados, estado, prioridad o riesgo inválidos |
+| `trg_normalizar_usuario` | `usuarios` | Correo en minúsculas y nombres sin espacios sobrantes |
+| `trg_auditoria_usuarios` | `usuarios` | Guarda en `auditoria_usuarios` cada cambio de rol o de estado de una cuenta, con quién lo hizo |
+| `trg_proteger_reportes` | `reportes` | Impide borrar emergencias que no estén descartadas |
+| `trg_fecha_actualizacion` | `reportes`, `usuarios`, `municipios`, `organismos` | Fecha de última modificación en hora de Colombia |
+
+**Procedimientos almacenados** (se llaman cuando se necesitan):
+
+| Procedimiento | Tipo | Qué hace | Ejemplo |
+|---|---|---|---|
+| `fn_resumen_municipio` | FUNCTION | Emergencias por estado y prioridad | `SELECT * FROM fn_resumen_municipio(1);` |
+| `fn_tiempo_respuesta` | FUNCTION | Minutos promedio en asignar y en resolver | `SELECT * FROM fn_tiempo_respuesta(1, '2026-01-01', '2026-12-31');` |
+| `fn_carga_organismos` | FUNCTION | Emergencias activas de cada organismo | `SELECT * FROM fn_carga_organismos(1);` |
+| `sp_cerrar_reportes_resueltos` | PROCEDURE | Cierra los reportes resueltos hace más de N días, con historial y aviso al ciudadano | `CALL sp_cerrar_reportes_resueltos(7, NULL);` |
+| `sp_limpiar_tokens_vencidos` | PROCEDURE | Borra enlaces de recuperación de contraseña usados o vencidos de más de un día | `CALL sp_limpiar_tokens_vencidos(NULL);` |
+
+Los tres primeros los usa el backend en `/api/indicadores`. Para que la auditoría sepa qué administrador
+cambió una cuenta, el backend lo informa en la misma transacción (`utilities/auditoria.py`).
+
+**Cómo probarlos a mano** (en una base de prueba):
+
+```sql
+-- trg_validar_reporte: debe fallar con "hay mas heridos que afectados"
+UPDATE reportes SET heridos = afectados + 1 WHERE id = 1;
+-- trg_proteger_reportes: debe fallar si el reporte no esta descartado
+DELETE FROM reportes WHERE id = 1;
+-- trg_auditoria_usuarios: cambia un rol y revisa la auditoria
+SELECT * FROM auditoria_usuarios ORDER BY fecha DESC;
+```
+
+Las pruebas automáticas usan SQLite, donde estos objetos no existen: allí se simula la respuesta de PostgreSQL
+(`tests/test_indicadores.py`). Los triggers y procedimientos se probaron contra PostgreSQL en una base temporal.
 
 ## Seguridad
 
 - Contraseñas con hash (Werkzeug); mínimo 8 caracteres con letras y números.
-- JWT de 2 horas; cada petición vuelve a comprobar en la base que el usuario siga activo y con su rol actual.
+- JWT de 20 minutos (configurable con `JWT_EXPIRES_MINUTES`); cada petición vuelve a comprobar en la base que el usuario siga activo y con su rol actual.
 - Limitador de intentos de login (5 intentos / 15 min, **en memoria**: con varios procesos habría que usar Redis).
 - Permisos por rol y por municipio/organismo validados siempre en el servidor.
 - Evidencias en carpeta privada, servidas solo a quien puede ver el reporte; se valida extensión, tipo, firma del archivo y tamaño.
@@ -156,9 +204,7 @@ Todas las rutas (salvo registro, login y recuperación de contraseña) exigen `A
 ## Notas y limitaciones conocidas
 
 - La app se conecta con el usuario administrador del servidor PostgreSQL. En producción conviene crear un usuario solo con `SELECT/INSERT/UPDATE/DELETE`.
-- La app no ejecuta `db.create_all()`: la estructura sale de `database/siger_db.sql`. Si cambias un modelo, actualiza la base y vuelve a exportar el esquema.
-- Para regenerar el esquema: `python database/exportar_esquema.py` (tablas desde los modelos y catálogos desde la base del `.env`).
-- No hay pruebas automáticas todavía; las funciones se probaron manualmente por rol.
+- La app no ejecuta `db.create_all()`: la estructura (tablas, triggers y procedimientos) vive en la base de Azure. Si cambias un modelo, actualiza también la base.
 
 ## Publicación en Azure
 
@@ -186,4 +232,4 @@ pip install -r requirements.txt -r requirements-dev.txt
 python -m pytest --cov --cov-config=.coveragerc --cov-report=term-missing
 ```
 
-Las pruebas usan SQLite en memoria y exigen un minimo de 70 % de cobertura. El CI (GitHub Actions) y SonarQube, y como se protege la contrasena en la red (HTTPS), estan en [CALIDAD_Y_SEGURIDAD.md](CALIDAD_Y_SEGURIDAD.md).
+Las pruebas usan SQLite en memoria y exigen un minimo de 70 % de cobertura. En GitHub Actions corren en cada cambio junto con SonarQube.

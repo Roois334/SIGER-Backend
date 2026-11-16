@@ -1,4 +1,3 @@
-"""Aplicacion completa: rutas basicas, decoradores y configuracion."""
 import importlib
 import os
 
@@ -61,7 +60,7 @@ class TestDecoradores:
 
     def test_el_rol_se_lee_de_la_base_no_del_token(self, client, datos):
         admin = datos.usuario("administrador", municipio=None)
-        h = cabeceras(admin)  # el token se emitio cuando era admin
+        h = cabeceras(admin)
         admin.rol_id = datos.roles["ciudadano"].id
         datos.db.session.commit()
         assert client.get("/api/usuarios", headers=h).status_code == 403

@@ -14,15 +14,9 @@ def _estado_arg():
     return estado if estado in ("activo", "inactivo") else None
 
 
-# Municipios
-
 @municipio_bp.route("/activos", methods=["GET"])
 @login_activo_required
 def listar_municipios_activos():
-    """
-    Listado de solo lectura para cualquier usuario autenticado (no solo admin).
-    Lo usa, por ejemplo, el formulario de registro de emergencias.
-    """
     municipios = MunicipioService.list_municipios(estado="activo")
     return jsonify({"municipios": municipios}), 200
 
@@ -84,8 +78,6 @@ def cambiar_estado_municipio(municipio_id):
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
-
-# Organismos
 
 @organismo_bp.route("", methods=["GET"])
 @admin_required

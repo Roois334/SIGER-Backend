@@ -1,11 +1,3 @@
-"""
-Datos PUBLICOS (sin iniciar sesion) para el mapa que ve cualquier visitante.
-
-Privacidad: solo se expone lo necesario para ubicar el incidente en el mapa.
-NO se entrega folio, descripcion, direccion exacta, nombre del ciudadano, organismo ni
-evidencias; y la coordenada se redondea (~110 m). Los reportes pendientes (aun sin
-revisar por el gestor) y los descartados no se publican.
-"""
 from flask import Blueprint, jsonify
 from sqlalchemy.orm import joinedload
 

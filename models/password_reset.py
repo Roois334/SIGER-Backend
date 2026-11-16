@@ -2,7 +2,6 @@ from extensions import db
 
 
 class PasswordReset(db.Model):
-    """Enlace de un solo uso para restablecer la contrasena. Se guarda solo el HASH del token."""
     __tablename__ = "password_resets"
 
     id = db.Column(db.Integer, primary_key=True)

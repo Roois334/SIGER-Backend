@@ -22,7 +22,6 @@ crear_siger_app.py
 parche_*.py
 ajustar_*.py
 
-# Pruebas y cobertura
 .pytest_cache/
 .coverage
 .coverage.*

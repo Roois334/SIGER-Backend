@@ -1,4 +1,3 @@
-"""Perfil propio y administracion de usuarios."""
 import io
 import os
 
@@ -94,7 +93,7 @@ class TestFoto:
         carpeta = app.config["UPLOAD_FOLDER_PERFILES"]
         assert os.listdir(carpeta) == [os.path.basename(primera)]
         segunda = self._subir(client, u, JPG, "b.jpg", "image/jpeg").get_json()["usuario"]["foto_url"]
-        assert os.listdir(carpeta) == [os.path.basename(segunda)]  # la anterior se borro
+        assert os.listdir(carpeta) == [os.path.basename(segunda)]
         r = client.delete("/api/usuarios/me/foto", headers=cabeceras(u))
         assert r.status_code == 200 and r.get_json()["usuario"]["foto_url"] is None
         assert os.listdir(carpeta) == []
@@ -107,7 +106,7 @@ class TestFoto:
         u = datos.usuario()
         assert client.post("/api/usuarios/me/foto", headers=cabeceras(u)).status_code == 400
         assert self._subir(client, u, PNG, "a.exe").status_code == 400
-        assert self._subir(client, u, b"no soy una imagen", "a.png").status_code == 400  # firma falsa
+        assert self._subir(client, u, b"no soy una imagen", "a.png").status_code == 400
         assert self._subir(client, u, b"", "a.png").status_code == 400
         assert self._subir(client, u, PNG + b"0" * (5 * 1024 * 1024), "a.png").status_code == 400
 
@@ -152,13 +151,12 @@ class TestAdministracion:
         u = datos.usuario()
         h = cabeceras(admin)
         put = lambda cuerpo: client.put(f"/api/usuarios/{u.id}", headers=h, json=cuerpo)
-        assert put({"rol": "organismo_atencion"}).status_code == 400  # sin organismo
+        assert put({"rol": "organismo_atencion"}).status_code == 400
         assert put({"rol": "organismo_atencion", "organismo_id": 9999}).status_code == 400
         assert put({"rol": "organismo_atencion", "organismo_id": "abc"}).status_code == 400
         assert put({"rol": "organismo_atencion", "organismo_id": datos.bomberos.id, "municipio": "Madrid"}).status_code == 400
         ok = put({"rol": "organismo_atencion", "organismo_id": datos.bomberos.id, "municipio": "Facatativa"})
         assert ok.status_code == 200 and ok.get_json()["usuario"]["organismo"] == "Bomberos"
-        # al dejar de ser organismo se limpia el organismo
         volver = put({"rol": "ciudadano", "organismo_id": ""})
         assert volver.get_json()["usuario"]["organismo_id"] is None
 
@@ -178,7 +176,7 @@ class TestAdministracion:
         assert put(u.id, {"rol": "inventado"}).status_code == 400
         assert put(u.id, {"municipio": "Narnia"}).status_code == 400
         assert put(u.id, {"email": otro.email}).status_code == 400
-        assert put(admin.id, {"rol": "ciudadano"}).status_code == 400  # no puede quitarse su rol
+        assert put(admin.id, {"rol": "ciudadano"}).status_code == 400
 
     def test_cambiar_estado(self, client, datos):
         admin = self._admin(datos)

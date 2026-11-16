@@ -3,12 +3,6 @@ import time
 
 
 class LimitadorIntentos:
-    """
-    Bloquea una clave (por ejemplo un correo) tras demasiados intentos fallidos
-    seguidos. Vive en memoria: se reinicia al reiniciar el servidor y cada proceso
-    de gunicorn tiene el suyo (para varios procesos habria que usar Redis).
-    """
-
     def __init__(self, maximo=5, ventana_seg=900):
         self.maximo = maximo
         self.ventana = ventana_seg
@@ -24,7 +18,6 @@ class LimitadorIntentos:
         return vigentes
 
     def segundos_bloqueado(self, clave):
-        """0 si puede intentar; si no, segundos que faltan para el desbloqueo."""
         ahora = time.time()
         with self._lock:
             fallos = self._limpiar(clave, ahora)

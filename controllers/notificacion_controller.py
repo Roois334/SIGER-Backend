@@ -9,7 +9,6 @@ notificacion_bp = Blueprint("notificacion_bp", __name__, url_prefix="/api/notifi
 @notificacion_bp.route("", methods=["GET"])
 @login_activo_required
 def listar():
-    """Mis notificaciones (mas nuevas primero) y cuantas tengo sin leer."""
     datos = NotificacionService.listar(
         g.usuario,
         solo_no_leidas=request.args.get("no_leidas") == "1",

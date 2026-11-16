@@ -1,16 +1,3 @@
-"""
-HU-17 - Estadisticas de emergencias.
-
-Calcula indicadores a partir de los reportes registrados: total, activas, resueltas,
-distribucion (con porcentajes) por tipo, municipio, prioridad y estado, serie en el
-tiempo y tiempos promedio de respuesta y de atencion.
-
-  activa   = pendiente, asignado o en_atencion
-  resuelta = resuelto o cerrado
-  tiempo de respuesta = desde que se reporta hasta que el gestor la asigna por primera vez
-  tiempo de atencion  = desde que se reporta hasta que el organismo la marca como resuelta
-"""
-
 from datetime import timedelta
 
 from sqlalchemy.orm import joinedload
@@ -42,7 +29,6 @@ def _distribucion(contador, total, orden=None):
 
 
 class EstadisticaService:
-
     @staticmethod
     def consultar(usuario, desde=None, hasta=None, municipio_id=None, tipo=None, prioridad=None, estado=None):
         rol = usuario.rol.nombre
@@ -57,7 +43,6 @@ class EstadisticaService:
         if estado and estado not in ORDEN_ESTADO and estado not in ("activas", "resueltas"):
             raise ValueError("Estado invalido")
 
-        # El gestor solo ve su municipio, sin importar lo que envie
         if rol == GESTOR_MUNICIPAL:
             if not usuario.municipio_id:
                 raise ValueError("Tu usuario no tiene un municipio asignado. Contacta al administrador")
@@ -80,7 +65,6 @@ class EstadisticaService:
         reportes = q.all()
         total = len(reportes)
 
-        # tiempos: primer movimiento "asignar" y primer "resolver" de cada reporte
         ids = [r.id for r in reportes]
         primeros = {"asignar": {}, "resolver": {}}
         if ids:
@@ -102,7 +86,6 @@ class EstadisticaService:
             if s and s >= r.fecha_hora:
                 aten.append((s - r.fecha_hora).total_seconds() / 60)
 
-        # conteos
         c_tipo, c_mun, c_pri, c_est, c_org = {}, {}, {}, {}, {}
         activas = resueltas = descartadas = criticas_activas = afectados = heridos = 0
         for r in reportes:
@@ -154,7 +137,6 @@ class EstadisticaService:
 
     @staticmethod
     def _serie(reportes, f_desde, f_hasta):
-        """Emergencias reportadas por dia (periodos cortos) o por mes (periodos largos)."""
         fechas = [r.fecha_hora.date() for r in reportes if r.fecha_hora]
         if not fechas:
             return {"granularidad": "dia", "puntos": []}

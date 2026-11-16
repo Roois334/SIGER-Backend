@@ -9,11 +9,6 @@ estadistica_bp = Blueprint("estadistica_bp", __name__, url_prefix="/api/estadist
 @estadistica_bp.route("", methods=["GET"])
 @permiso_required("estadisticas.ver")
 def consultar():
-    """
-    Indicadores y distribuciones de las emergencias registradas.
-    Filtros opcionales: desde, hasta (AAAA-MM-DD), municipio_id, tipo, prioridad, estado.
-    El gestor siempre queda limitado a su municipio.
-    """
     try:
         datos = EstadisticaService.consultar(
             g.usuario,
