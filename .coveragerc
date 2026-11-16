@@ -1,0 +1,29 @@
+# Cobertura del BACKEND. Se mide solo el codigo de la aplicacion (no las pruebas ni los scripts de mantenimiento).
+[run]
+branch = True
+relative_files = True
+source =
+    .
+omit =
+    tests/*
+    venv/*
+    _respaldo_codigo/*
+    database/*
+    parche_*.py
+    ajustar_*.py
+    aplicar_fk.py
+    crear_siger_app.py
+    respaldo.py
+    revisar.py
+    sacar_esquema.py
+
+[report]
+fail_under = 70
+show_missing = True
+skip_covered = False
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+
+[xml]
+output = coverage.xml

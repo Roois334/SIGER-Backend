@@ -5,7 +5,7 @@ from extensions import db
 from models.user import User
 from models.catalogos import Rol, Municipio
 from dtos.user_dto import UserResponseDTO
-from utilities.validaciones import validar_email, validar_password
+from utilities.validaciones import validar_email, validar_password, MAX_PASSWORD
 from utilities.validaciones_persona import validar_documento, validar_telefono, validar_nombre
 from utilities.permisos import CIUDADANO
 
@@ -61,8 +61,12 @@ class AuthService:
     @staticmethod
     def login(dto):
         email = (dto.email or "").strip().lower()
+        password = dto.password
+        # Sin contrasena, que no sea texto o desmedida: mismo mensaje generico (y no se calcula el hash)
+        if not isinstance(password, str) or not password or len(password) > MAX_PASSWORD:
+            raise ValueError("Correo o contrasena incorrectos")
         user = User.query.filter_by(email=email, activo=True).first()
-        if not user or not check_password_hash(user.password_hash, dto.password):
+        if not user or not check_password_hash(user.password_hash, password):
             raise ValueError("Correo o contrasena incorrectos")
 
         return AuthService._emitir_token(user)

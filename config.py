@@ -31,6 +31,14 @@ def _construir_uri_db():
     )
 
 
+def _opciones_motor(uri):
+    """Opciones del pool. SQLite (usado en las pruebas) no admite pool_size ni connect_timeout."""
+    if str(uri).startswith("sqlite"):
+        return {}
+    return {"pool_pre_ping": True, "pool_recycle": 280, "pool_size": 5,
+            "connect_args": {"connect_timeout": 15}}
+
+
 class Config:
     # Modo depuracion: solo si el .env dice FLASK_DEBUG=1
     DEBUG = os.environ.get("FLASK_DEBUG", "0") == "1"
@@ -52,8 +60,7 @@ class Config:
     SQLALCHEMY_DATABASE_URI = _construir_uri_db()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 280, "pool_size": 5,
-                                 "connect_args": {"connect_timeout": 15}}
+    SQLALCHEMY_ENGINE_OPTIONS = _opciones_motor(SQLALCHEMY_DATABASE_URI)
 
     # Recuperacion de contrasena (correo por Gmail)
     # Direccion publica del FRONTEND: es la que se pone en el enlace del correo.
