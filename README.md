@@ -157,6 +157,18 @@ Todas las rutas (salvo registro, login y recuperación de contraseña) exigen `A
 
 Están en `database/triggers_y_procedimientos.sql` (PostgreSQL), documentados línea por línea.
 
+**Dónde verlos** en la extensión PostgreSQL de VS Code (`siger_db > Schemas > public`):
+
+| Carpeta | Contenido |
+|---|---|
+| `Views > vista_triggers_y_procedimientos` | La lista completa de los 5 triggers y 5 procedimientos, con su descripción |
+| `Functions` | Los 3 procedimientos que devuelven datos (`fn_...`) |
+| `Procedures` | Los 2 procedimientos que hacen una acción (`sp_...`) |
+| `Trigger Functions` | El código que ejecuta cada trigger (`trgfn_...`) |
+| `Tables > (tabla) > Triggers` | Cada trigger, dentro de la tabla donde actúa (`trg_...`) |
+
+O en una consulta: `SELECT * FROM vista_triggers_y_procedimientos;`
+
 **Triggers** (se ejecutan solos):
 
 | Trigger | Tabla | Qué hace |

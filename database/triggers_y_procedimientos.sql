@@ -23,19 +23,16 @@
 --   trgfn_...  el codigo que ejecuta ese trigger (PostgreSQL lo guarda como una funcion interna)
 --   fn_...     procedimiento almacenado que DEVUELVE datos   (se usa con SELECT)
 --   sp_...     procedimiento almacenado que HACE una accion  (se usa con CALL)
---   siger_ahora()  funcion de apoyo: hora actual de Colombia
 --
--- Las fechas de SIGER se guardan en hora de Colombia (UTC-5, sin horario de verano), igual que en la app.
-
-
--- Hora actual de Colombia sin zona horaria (como la guarda la aplicacion)
-CREATE OR REPLACE FUNCTION siger_ahora()
-RETURNS timestamp
-LANGUAGE sql
-STABLE
-AS $$
-    SELECT (now() AT TIME ZONE 'America/Bogota')::timestamp;
-$$;
+-- En la extension PostgreSQL de VS Code (siger_db > Schemas > public):
+--   Functions          los 3 fn_...
+--   Procedures         los 2 sp_...
+--   Trigger Functions  los 5 trgfn_...
+--   Tables > (tabla) > Triggers   cada trigger dentro de su tabla
+--   Views > vista_triggers_y_procedimientos   la lista completa de los 5 + 5
+--
+-- Las fechas de SIGER se guardan en hora de Colombia (UTC-5, sin horario de verano), igual que en la app:
+--   (now() AT TIME ZONE 'America/Bogota')::timestamp
 
 
 -- ===========================================================================
@@ -118,7 +115,7 @@ CREATE TABLE IF NOT EXISTS auditoria_usuarios (
     valor_nuevo     VARCHAR(60),
     modificado_por  INTEGER REFERENCES usuarios (id) ON DELETE SET NULL,
     usuario_bd      VARCHAR(63) NOT NULL DEFAULT current_user,
-    fecha           TIMESTAMP NOT NULL DEFAULT siger_ahora()
+    fecha           TIMESTAMP NOT NULL DEFAULT (now() AT TIME ZONE 'America/Bogota')::timestamp
 );
 CREATE INDEX IF NOT EXISTS idx_auditoria_usuarios_usuario ON auditoria_usuarios (usuario_id, fecha);
 
@@ -189,7 +186,7 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     IF NEW IS DISTINCT FROM OLD THEN
-        NEW.fecha_actualizacion := siger_ahora();
+        NEW.fecha_actualizacion := (now() AT TIME ZONE 'America/Bogota')::timestamp;
     END IF;
     RETURN NEW;
 END;
@@ -329,7 +326,7 @@ CREATE OR REPLACE PROCEDURE sp_cerrar_reportes_resueltos(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_ahora TIMESTAMP := siger_ahora();
+    v_ahora TIMESTAMP := (now() AT TIME ZONE 'America/Bogota')::timestamp;
 BEGIN
     IF p_dias IS NULL OR p_dias < 1 THEN
         RAISE EXCEPTION 'Los dias deben ser 1 o mas' USING ERRCODE = 'invalid_parameter_value';
@@ -388,9 +385,47 @@ $$;
 
 
 -- ===========================================================================
+-- VISTA: la lista completa de los 5 triggers y los 5 procedimientos almacenados
+--   SELECT * FROM vista_triggers_y_procedimientos;
+-- ===========================================================================
+CREATE OR REPLACE VIEW vista_triggers_y_procedimientos AS
+SELECT 'Trigger'::text AS tipo,
+       t.trigger_name::text AS nombre,
+       string_agg(DISTINCT t.event_object_table::text, ', ') AS tabla,
+       CASE t.trigger_name
+           WHEN 'trg_validar_reporte'     THEN 'Rechaza datos imposibles en un reporte'
+           WHEN 'trg_normalizar_usuario'  THEN 'Correo en minusculas y nombres sin espacios sobrantes'
+           WHEN 'trg_auditoria_usuarios'  THEN 'Guarda quien cambio el rol o el estado de una cuenta'
+           WHEN 'trg_proteger_reportes'   THEN 'Impide borrar emergencias que no esten descartadas'
+           WHEN 'trg_fecha_actualizacion' THEN 'Actualiza la fecha de ultima modificacion'
+       END AS descripcion
+FROM information_schema.triggers t
+WHERE t.trigger_schema = 'public'
+GROUP BY t.trigger_name
+UNION ALL
+SELECT 'Procedimiento almacenado',
+       r.routine_name::text,
+       CASE r.routine_type WHEN 'FUNCTION' THEN 'devuelve datos (SELECT)' ELSE 'hace una accion (CALL)' END,
+       CASE r.routine_name
+           WHEN 'fn_resumen_municipio'         THEN 'Emergencias por estado y prioridad'
+           WHEN 'fn_tiempo_respuesta'          THEN 'Minutos promedio en asignar y en resolver'
+           WHEN 'fn_carga_organismos'          THEN 'Emergencias activas de cada organismo'
+           WHEN 'sp_cerrar_reportes_resueltos' THEN 'Cierra los reportes resueltos hace mas de N dias'
+           WHEN 'sp_limpiar_tokens_vencidos'   THEN 'Borra enlaces viejos de recuperacion de contrasena'
+       END
+FROM information_schema.routines r
+WHERE r.routine_schema = 'public'
+  AND r.routine_name IN ('fn_resumen_municipio', 'fn_tiempo_respuesta', 'fn_carga_organismos',
+                         'sp_cerrar_reportes_resueltos', 'sp_limpiar_tokens_vencidos')
+ORDER BY 1 DESC, 2;
+
+-- ===========================================================================
 -- LIMPIEZA: nombres anteriores de las funciones internas de los triggers
 -- (antes se llamaban fn_..., igual que los procedimientos; ahora son trgfn_...)
+-- y la antigua funcion de apoyo siger_ahora() (la hora de Colombia ahora va escrita donde se usa)
 -- ===========================================================================
+ALTER TABLE auditoria_usuarios ALTER COLUMN fecha SET DEFAULT (now() AT TIME ZONE 'America/Bogota')::timestamp;
+DROP FUNCTION IF EXISTS siger_ahora();
 DROP FUNCTION IF EXISTS fn_validar_reporte();
 DROP FUNCTION IF EXISTS fn_normalizar_usuario();
 DROP FUNCTION IF EXISTS fn_auditoria_usuarios();

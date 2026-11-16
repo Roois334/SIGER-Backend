@@ -197,7 +197,7 @@ Bitácora de cambios de rol y de estado (activa/inactiva) de las cuentas. La lle
 | `valor_nuevo` | VARCHAR(60) | SI |  |  |  | Valor después del cambio. |
 | `modificado_por` | INTEGER | SI | FK | usuarios.id (ON DELETE SET NULL) |  | Administrador que hizo el cambio (lo informa el backend). Vacío si el cambio se hizo por fuera de la app. |
 | `usuario_bd` | VARCHAR(63) | NO |  |  | current_user | Usuario de base de datos que ejecutó el cambio. |
-| `fecha` | TIMESTAMP | NO |  |  | siger_ahora() | Fecha del cambio, en hora de Colombia. |
+| `fecha` | TIMESTAMP | NO |  |  | hora de Colombia | Fecha del cambio. |
 
 ## Relaciones
 
