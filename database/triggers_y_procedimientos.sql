@@ -18,6 +18,13 @@
 --   4. sp_cerrar_reportes_resueltos(dias)           cierra los reportes resueltos hace mas de N dias
 --   5. sp_limpiar_tokens_vencidos()                 borra enlaces de recuperacion de contrasena viejos
 --
+-- NOMBRES (para no confundirlos al verlos en la base):
+--   trg_...    el trigger (la regla: "cuando pase X en la tabla Y")
+--   trgfn_...  el codigo que ejecuta ese trigger (PostgreSQL lo guarda como una funcion interna)
+--   fn_...     procedimiento almacenado que DEVUELVE datos   (se usa con SELECT)
+--   sp_...     procedimiento almacenado que HACE una accion  (se usa con CALL)
+--   siger_ahora()  funcion de apoyo: hora actual de Colombia
+--
 -- Las fechas de SIGER se guardan en hora de Colombia (UTC-5, sin horario de verano), igual que en la app.
 
 
@@ -36,7 +43,7 @@ $$;
 -- La aplicacion ya valida, pero esto protege la base aunque alguien la modifique
 -- por fuera de SIGER (por ejemplo, desde una herramienta de base de datos).
 -- ===========================================================================
-CREATE OR REPLACE FUNCTION fn_validar_reporte()
+CREATE OR REPLACE FUNCTION trgfn_validar_reporte()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
@@ -72,14 +79,14 @@ $$;
 DROP TRIGGER IF EXISTS trg_validar_reporte ON reportes;
 CREATE TRIGGER trg_validar_reporte
     BEFORE INSERT OR UPDATE ON reportes
-    FOR EACH ROW EXECUTE FUNCTION fn_validar_reporte();
+    FOR EACH ROW EXECUTE FUNCTION trgfn_validar_reporte();
 
 
 -- ===========================================================================
 -- TRIGGER 2: normalizar los datos de un usuario
 -- Evita cuentas duplicadas como "Juan@Correo.com" y "juan@correo.com".
 -- ===========================================================================
-CREATE OR REPLACE FUNCTION fn_normalizar_usuario()
+CREATE OR REPLACE FUNCTION trgfn_normalizar_usuario()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
@@ -94,7 +101,7 @@ $$;
 DROP TRIGGER IF EXISTS trg_normalizar_usuario ON usuarios;
 CREATE TRIGGER trg_normalizar_usuario
     BEFORE INSERT OR UPDATE OF email, nombre, apellido ON usuarios
-    FOR EACH ROW EXECUTE FUNCTION fn_normalizar_usuario();
+    FOR EACH ROW EXECUTE FUNCTION trgfn_normalizar_usuario();
 
 
 -- ===========================================================================
@@ -115,7 +122,7 @@ CREATE TABLE IF NOT EXISTS auditoria_usuarios (
 );
 CREATE INDEX IF NOT EXISTS idx_auditoria_usuarios_usuario ON auditoria_usuarios (usuario_id, fecha);
 
-CREATE OR REPLACE FUNCTION fn_auditoria_usuarios()
+CREATE OR REPLACE FUNCTION trgfn_auditoria_usuarios()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
@@ -145,14 +152,14 @@ CREATE TRIGGER trg_auditoria_usuarios
     AFTER UPDATE OF rol_id, activo ON usuarios
     FOR EACH ROW
     WHEN (OLD.rol_id IS DISTINCT FROM NEW.rol_id OR OLD.activo IS DISTINCT FROM NEW.activo)
-    EXECUTE FUNCTION fn_auditoria_usuarios();
+    EXECUTE FUNCTION trgfn_auditoria_usuarios();
 
 
 -- ===========================================================================
 -- TRIGGER 4: proteger el historial de emergencias
 -- Una emergencia real nunca debe desaparecer. Solo se pueden borrar las descartadas.
 -- ===========================================================================
-CREATE OR REPLACE FUNCTION fn_proteger_reportes()
+CREATE OR REPLACE FUNCTION trgfn_proteger_reportes()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
@@ -169,14 +176,14 @@ $$;
 DROP TRIGGER IF EXISTS trg_proteger_reportes ON reportes;
 CREATE TRIGGER trg_proteger_reportes
     BEFORE DELETE ON reportes
-    FOR EACH ROW EXECUTE FUNCTION fn_proteger_reportes();
+    FOR EACH ROW EXECUTE FUNCTION trgfn_proteger_reportes();
 
 
 -- ===========================================================================
 -- TRIGGER 5: fecha de ultima modificacion
 -- Se actualiza sola en cualquier cambio real de la fila, en hora de Colombia.
 -- ===========================================================================
-CREATE OR REPLACE FUNCTION fn_fecha_actualizacion()
+CREATE OR REPLACE FUNCTION trgfn_fecha_actualizacion()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
@@ -191,22 +198,22 @@ $$;
 DROP TRIGGER IF EXISTS trg_fecha_actualizacion ON reportes;
 CREATE TRIGGER trg_fecha_actualizacion
     BEFORE UPDATE ON reportes
-    FOR EACH ROW EXECUTE FUNCTION fn_fecha_actualizacion();
+    FOR EACH ROW EXECUTE FUNCTION trgfn_fecha_actualizacion();
 
 DROP TRIGGER IF EXISTS trg_fecha_actualizacion ON usuarios;
 CREATE TRIGGER trg_fecha_actualizacion
     BEFORE UPDATE ON usuarios
-    FOR EACH ROW EXECUTE FUNCTION fn_fecha_actualizacion();
+    FOR EACH ROW EXECUTE FUNCTION trgfn_fecha_actualizacion();
 
 DROP TRIGGER IF EXISTS trg_fecha_actualizacion ON municipios;
 CREATE TRIGGER trg_fecha_actualizacion
     BEFORE UPDATE ON municipios
-    FOR EACH ROW EXECUTE FUNCTION fn_fecha_actualizacion();
+    FOR EACH ROW EXECUTE FUNCTION trgfn_fecha_actualizacion();
 
 DROP TRIGGER IF EXISTS trg_fecha_actualizacion ON organismos;
 CREATE TRIGGER trg_fecha_actualizacion
     BEFORE UPDATE ON organismos
-    FOR EACH ROW EXECUTE FUNCTION fn_fecha_actualizacion();
+    FOR EACH ROW EXECUTE FUNCTION trgfn_fecha_actualizacion();
 
 
 -- ===========================================================================
@@ -378,3 +385,14 @@ BEGIN
     GET DIAGNOSTICS p_borrados = ROW_COUNT;
 END;
 $$;
+
+
+-- ===========================================================================
+-- LIMPIEZA: nombres anteriores de las funciones internas de los triggers
+-- (antes se llamaban fn_..., igual que los procedimientos; ahora son trgfn_...)
+-- ===========================================================================
+DROP FUNCTION IF EXISTS fn_validar_reporte();
+DROP FUNCTION IF EXISTS fn_normalizar_usuario();
+DROP FUNCTION IF EXISTS fn_auditoria_usuarios();
+DROP FUNCTION IF EXISTS fn_proteger_reportes();
+DROP FUNCTION IF EXISTS fn_fecha_actualizacion();
