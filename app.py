@@ -17,7 +17,9 @@ from utilities.seguridad import aplicar_seguridad
 import models.password_reset  # noqa: F401  (registra la tabla password_resets)
 import models.notificacion  # noqa: F401  (registra la tabla notificaciones)
 
-app = Flask(__name__)
+# Sin proteccion CSRF a proposito: esta API no usa cookies de sesion. Cada peticion se autentica con el
+# token JWT en la cabecera Authorization, que el navegador no envia solo desde otro sitio (CSRF no aplica).
+app = Flask(__name__)  # NOSONAR
 app.config.from_object(Config)
 # HTTPS obligatorio detras de Azure + HSTS + "no-store" en login/contrasenas (ver utilities/seguridad.py)
 aplicar_seguridad(app, rutas_sensibles=("/api/auth", "/api/usuarios/me"))
