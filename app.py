@@ -26,10 +26,8 @@ app.config.from_object(Config)
 aplicar_seguridad(app, rutas_sensibles=("/api/auth", "/api/usuarios/me"))
 CORS(app, origins=[Config.FRONTEND_URL, "http://localhost:5001", "http://127.0.0.1:5001"])
 
-# La estructura de la base sale de database/siger_db.sql (tablas y catalogos) y de
-# database/triggers_y_procedimientos.sql (triggers y procedimientos almacenados).
-# Por eso aqui NO se hace db.create_all(). Si cambias un modelo, actualiza la base y
-# vuelve a exportar el esquema con database/exportar_esquema.py.
+# La estructura de la base (tablas, catalogos, triggers y procedimientos) vive en la base PostgreSQL
+# de Azure. Por eso aqui NO se hace db.create_all(). Si cambias un modelo, actualiza tambien la base.
 db.init_app(app)
 JWTManager(app)
 for blueprint in (auth_bp, user_bp, municipio_bp, organismo_bp, reporte_bp,

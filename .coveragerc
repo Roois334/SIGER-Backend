@@ -8,7 +8,6 @@ omit =
     tests/*
     venv/*
     _respaldo_codigo/*
-    database/*
     parche_*.py
     ajustar_*.py
     aplicar_fk.py

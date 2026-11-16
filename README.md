@@ -25,7 +25,6 @@ BACKEND/
 ├── models/                # tablas (SQLAlchemy)
 ├── dtos/                  # objetos que viajan entre capas / hacia el cliente
 ├── utilities/             # permisos por rol, validaciones, limitador de intentos, correo, prioridad
-├── database/              # esquema SQL y script para exportarlo
 ├── static/correo/         # imágenes de los correos
 └── uploads_privados/      # evidencias subidas (no se versiona; se crea sola)
 ```
@@ -46,22 +45,10 @@ pip install -r requirements.txt
 
 ### 2. Base de datos
 
-La base del proyecto está en **Azure Database for PostgreSQL** (servidor `siger-pg-2716`, grupo de recursos
-`siger-rg`). Para montar una base **nueva** en PostgreSQL, créala vacía (por ejemplo `siger_db`) e impórtale el esquema:
-
-```powershell
-psql "host=TU_HOST user=TU_USUARIO dbname=siger_db sslmode=require" -f database/siger_db.sql
-```
-
-El archivo `database/siger_db.sql` crea todas las tablas e inserta los datos de catálogo (roles, municipios,
-organismos y su relación). **No trae usuarios.** Con una herramienta gráfica (pgAdmin, DBeaver, Azure Data Studio)
-basta con ejecutar ese archivo sobre la base vacía. Se puede ejecutar varias veces sin duplicar nada.
-
-Después, sobre la misma base, ejecuta los triggers y procedimientos almacenados:
-
-```powershell
-psql "host=TU_HOST user=TU_USUARIO dbname=siger_db sslmode=require" -f database/triggers_y_procedimientos.sql
-```
+La base del proyecto está en **Azure Database for PostgreSQL** (servidor `siger-pg-2716`, base `siger_db`, grupo de
+recursos `siger-rg`) y ya tiene todas las tablas, los catálogos, los triggers y los procedimientos almacenados.
+No hay que crear nada: basta con poner los datos de conexión en el `.env` (paso 3). Azure solo acepta conexiones
+desde las IP autorizadas en el servidor (*Redes* en el portal).
 
 ### 3. Variables de entorno
 
@@ -155,7 +142,7 @@ Todas las rutas (salvo registro, login y recuperación de contraseña) exigen `A
 
 ## Triggers y procedimientos almacenados
 
-Están en `database/triggers_y_procedimientos.sql` (PostgreSQL), documentados línea por línea.
+Están creados directamente en la base PostgreSQL de Azure (`siger_db`).
 
 **Dónde verlos** en la extensión PostgreSQL de VS Code (`siger_db > Schemas > public`):
 
@@ -219,8 +206,7 @@ Las pruebas automáticas usan SQLite, donde estos objetos no existen: allí se s
 ## Notas y limitaciones conocidas
 
 - La app se conecta con el usuario administrador del servidor PostgreSQL. En producción conviene crear un usuario solo con `SELECT/INSERT/UPDATE/DELETE`.
-- La app no ejecuta `db.create_all()`: la estructura sale de `database/siger_db.sql` y `database/triggers_y_procedimientos.sql`. Si cambias un modelo, actualiza la base y vuelve a exportar el esquema.
-- Para regenerar el esquema: `python database/exportar_esquema.py` (tablas desde los modelos y catálogos desde la base del `.env`). No incluye los triggers ni los procedimientos: esos viven en su propio archivo.
+- La app no ejecuta `db.create_all()`: la estructura (tablas, triggers y procedimientos) vive en la base de Azure. Si cambias un modelo, actualiza también la base.
 
 ## Publicación en Azure
 

@@ -1,6 +1,6 @@
 """
 Indicadores que calcula la propia base de datos con procedimientos almacenados
-(ver database/triggers_y_procedimientos.sql):
+(definidos directamente en la base PostgreSQL de Azure):
 
   fn_resumen_municipio  -> emergencias por estado y prioridad
   fn_tiempo_respuesta   -> minutos promedio en asignar y en resolver

@@ -27,7 +27,7 @@ pip install -r requirements.txt -r requirements-dev.txt
 python -m pytest --cov --cov-config=.coveragerc --cov-report=term-missing
 ```
 - Usan **SQLite en memoria**: no tocan Azure ni PostgreSQL y no envian correos.
-- `.coveragerc` exige **70 %** como minimo (`fail_under`) y mide solo el codigo de la aplicacion (no `tests/`, `venv/`, `database/` ni los scripts `parche_*.py`, que ni siquiera estan en Git).
+- `.coveragerc` exige **70 %** como minimo (`fail_under`) y mide solo el codigo de la aplicacion (no `tests/`, `venv/` ni los scripts `parche_*.py`, que ni siquiera estan en Git).
 - Se crean `coverage.xml` (para SonarQube) y `junit.xml`.
 
 ## 3. CI (GitHub Actions)
