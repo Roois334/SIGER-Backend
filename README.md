@@ -223,6 +223,9 @@ El avance se ve en la pestaña **Actions** del repositorio. También se puede la
   que solo tiene permiso para publicar en las aplicaciones de SIGER.
 - Las claves (base de datos, correo, `SECRET_KEY`) **no** están en el repositorio: se configuran en
   Azure, en la aplicación → *Configuración → Variables de entorno*.
+ - Direcciones y HTTPS: en el frontend, `BACKEND_URL` con `https://`; en el backend, `FRONTEND_URL` con
+  `https://`. `SESSION_COOKIE_SECURE` debe estar en `1`, y no debe existir `FORCE_HTTPS=0`.
+  Ambas aplicaciones tienen **Solo HTTPS** activado y **TLS 1.2** como mínimo.
 
 
 ## Pruebas, seguridad y calidad
